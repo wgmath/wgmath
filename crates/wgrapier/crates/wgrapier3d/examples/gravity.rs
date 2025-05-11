@@ -3,11 +3,12 @@ use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
 use naga_oil::compose::NagaModuleDescriptor;
 use nalgebra::{Similarity3, Vector3, Vector4};
 use wgcore::gpu::GpuInstance;
-use wgcore::kernel::{KernelInvocation, KernelInvocationQueue};
+use wgcore::kernel::{CommandEncoderExt, KernelDispatch};
 use wgcore::tensor::GpuVector;
 use wgcore::utils::{load_module, load_shader};
+use wgcore::Shader;
 use wgpu::{BufferUsages, CommandEncoder, ComputePipeline};
-use wgrapier::dynamics::body::{GpuMassProperties, GpuVelocity, WgBody};
+use wgrapier3d::dynamics::body::{GpuMassProperties, GpuVelocity, WgBody};
 
 #[derive(Resource)]
 struct Gpu {
@@ -49,17 +50,17 @@ fn step_simulation(
 ) {
     let t0 = std::time::Instant::now();
     let gpu = &gpu.instance;
-    let mut queue = KernelInvocationQueue::new(gpu.device_arc());
     let mut encoder = gpu.device().create_command_encoder(&Default::default());
-    KernelInvocationBuilder::new(queue, &physics.simulation)
+    let mut pass = encoder.compute_pass("step_simulation", None);
+    KernelDispatch::new(gpu.device(), &mut pass, &physics.simulation)
         .bind0([
             physics.wg_mprops.buffer(),
             physics.wg_local_mprops.buffer(),
             physics.wg_poses.buffer(),
             physics.wg_vels.buffer(),
         ])
-        .queue(256);
-    queue.encode(&mut encoder, None);
+        .dispatch(256);
+    drop(pass);
     gpu.queue().submit(Some(encoder.finish()));
     gpu.device().poll(wgpu::Maintain::Wait);
     println!("Simulation time: {}.", t0.elapsed().as_secs_f32() * 1000.0);
@@ -104,15 +105,15 @@ fn setup_physics(mut commands: Commands, gpu: Res<Gpu>) {
                 let elt = i + k * NXZ + j * NXZ * NXZ;
                 let pos = Vector3::new(i as f32, j as f32, k as f32);
                 rb_poses[elt].isometry.translation.vector = pos.xyz();
-                rb_mprops[elt].com = pos.push(0.0);
+                rb_mprops[elt].com = pos;
             }
         }
     }
 
     let ctxt = PhysicsContext {
-        wg_vels: GpuVector::init(gpu.device(), &rb_vels, BufferUsages::STORAGE),
-        wg_local_mprops: GpuVector::init(gpu.device(), &rb_local_mprops, BufferUsages::STORAGE),
-        wg_mprops: GpuVector::init(gpu.device(), &rb_mprops, BufferUsages::STORAGE),
+        wg_vels: GpuVector::encase(gpu.device(), &rb_vels, BufferUsages::STORAGE),
+        wg_local_mprops: GpuVector::encase(gpu.device(), &rb_local_mprops, BufferUsages::STORAGE),
+        wg_mprops: GpuVector::encase(gpu.device(), &rb_mprops, BufferUsages::STORAGE),
         wg_poses: GpuVector::init(
             gpu.device(),
             &rb_poses,
@@ -129,15 +130,14 @@ fn setup_physics(mut commands: Commands, gpu: Res<Gpu>) {
     commands.insert_resource(ctxt);
 }
 
+#[derive(Shader)]
+#[shader(derive(WgBody), src = "./gravity.wgsl", composable = false)]
+struct WgGravity {
+    main: ComputePipeline,
+}
+
 fn load_simulation_shader(gpu: &GpuInstance) -> ComputePipeline {
-    let module = WgBody::composer()
-        .make_naga_module(NagaModuleDescriptor {
-            source: include_str!("./gravity.wgsl"),
-            file_path: "./gravity.wgsl",
-            ..Default::default()
-        })
-        .unwrap();
-    load_module(gpu.device(), "main", module)
+    WgGravity::from_device(gpu.device()).unwrap().main
 }
 
 /// set up a simple 3D scene
@@ -159,18 +159,16 @@ fn setup_graphics(
     let sphere = meshes.add(Sphere::new(0.5));
 
     for (rb_id, pose) in physics.rb_poses.iter().enumerate() {
-        commands
-            .spawn(PbrBundle {
-                mesh: sphere.clone(),
-                material: materials[rb_id % colors.len()].clone(),
-                transform: Transform::from_xyz(
-                    pose.isometry.translation.x,
-                    pose.isometry.translation.y,
-                    pose.isometry.translation.z,
-                ),
-                ..default()
-            })
-            .insert(RigidBodyId(rb_id));
+        commands.spawn((
+            Mesh3d(sphere.clone()),
+            MeshMaterial3d(materials[rb_id % colors.len()].clone()),
+            Transform::from_xyz(
+                pose.isometry.translation.x,
+                pose.isometry.translation.y,
+                pose.isometry.translation.z,
+            ),
+            RigidBodyId(rb_id),
+        ));
     }
 
     // light
@@ -181,10 +179,9 @@ fn setup_graphics(
 
     // camera
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(0.0, 1.5, 5.0)),
-            ..default()
-        },
+        Camera3d::default(),
+        Msaa::Sample4,
+        Transform::from_translation(Vec3::new(0.0, 1.5, 5.0)),
         PanOrbitCamera::default(),
     ));
 }

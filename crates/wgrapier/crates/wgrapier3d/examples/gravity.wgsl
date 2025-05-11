@@ -18,7 +18,7 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
     let num_threads = num_workgroups.x * WORKGROUP_SIZE * num_workgroups.y * num_workgroups.z;
     for (var i = invocation_id.x; i < arrayLength(&poses); i += num_threads) {
         let new_vels = Body::integrateForces(mprops[i], vels[i], gravity, 0.016);
-        let new_pose = Body::integratePose(poses[i], new_vels, local_mprops[i].com, 0.016);
+        let new_pose = Body::integrateVelocity(poses[i], new_vels, local_mprops[i].com, 0.016);
         let new_mprops = Body::updateMprops(new_pose, local_mprops[i]);
 
         mprops[i] = new_mprops;

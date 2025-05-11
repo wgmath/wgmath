@@ -12,7 +12,7 @@ use wgcore::tensor::GpuVector;
 use wgcore::Shader;
 use wgebra::{WgQuat, WgSim2, WgSim3};
 use wgparry::math::{AngVector, AngularInertia, GpuSim, Point, Vector};
-use wgparry::shape::{GpuShape, ShapeBuffers};
+use wgparry::shapes::{GpuShape, ShapeBuffers};
 use wgparry::{dim_shader_defs, substitute_aliases};
 use wgpu::{BufferUsages, Device};
 

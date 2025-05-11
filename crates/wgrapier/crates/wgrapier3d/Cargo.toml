@@ -41,5 +41,5 @@ futures-test = "0.3"
 serial_test = "3"
 approx = "0.5"
 async-std = { version = "1", features = ["attributes"] }
-#bevy = { version = "0.14", features = ["shader_format_glsl", "shader_format_spirv"] }
-#bevy_panorbit_camera = "0.19.1"
+bevy = { version = "0.16", features = ["shader_format_glsl", "shader_format_spirv"] }
+bevy_panorbit_camera = "0.26.0"
