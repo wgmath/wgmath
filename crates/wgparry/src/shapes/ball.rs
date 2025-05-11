@@ -1,7 +1,6 @@
 //! The ball shape.
 
-use crate::projection::WgProjection;
-use crate::ray::WgRay;
+use crate::queries::{WgProjection, WgRay};
 use crate::{dim_shader_defs, substitute_aliases};
 use wgcore::Shader;
 use wgebra::{WgSim2, WgSim3};

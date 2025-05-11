@@ -10,20 +10,8 @@ pub extern crate parry3d as parry;
 use naga_oil::compose::ShaderDefValue;
 use std::collections::HashMap;
 
-pub mod ball;
-pub mod capsule;
-pub mod cuboid;
-pub mod projection;
-mod ray;
-pub mod segment;
-pub mod triangle;
-// mod contact;
-
-#[cfg(feature = "dim3")]
-pub mod cone;
-#[cfg(feature = "dim3")]
-pub mod cylinder;
-pub mod shape;
+pub mod queries;
+pub mod shapes;
 
 /// Shader definitions that depend on whether we are building the 2D or 3D version of this crate.
 pub fn dim_shader_defs() -> HashMap<String, ShaderDefValue> {

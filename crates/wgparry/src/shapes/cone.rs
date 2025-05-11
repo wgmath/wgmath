@@ -1,8 +1,7 @@
 //! The cone shape.
 
-use crate::projection::WgProjection;
-use crate::ray::WgRay;
-use crate::segment::WgSegment;
+use crate::queries::{WgProjection, WgRay};
+use crate::shapes::segment::WgSegment;
 use crate::{dim_shader_defs, substitute_aliases};
 use wgcore::Shader;
 use wgebra::{WgSim2, WgSim3};

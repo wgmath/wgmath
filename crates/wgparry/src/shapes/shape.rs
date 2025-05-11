@@ -1,21 +1,18 @@
 //! A shape enum.
 
-use crate::ball::WgBall;
-use crate::capsule::WgCapsule;
-use crate::cuboid::WgCuboid;
-use crate::projection::WgProjection;
-use crate::ray::WgRay;
+use crate::queries::{WgProjection, WgRay};
+use crate::shapes::{WgBall, WgCapsule, WgCuboid};
 use crate::{dim_shader_defs, substitute_aliases};
 use na::{vector, Vector4};
 use parry::shape::{Shape, ShapeType, TypedShape};
 use wgcore::{test_shader_compilation, Shader};
 use wgebra::{WgSim2, WgSim3};
 
-#[cfg(feature = "dim3")]
-use crate::cone::WgCone;
-#[cfg(feature = "dim3")]
-use crate::cylinder::WgCylinder;
 use crate::math::{Point, Vector};
+#[cfg(feature = "dim3")]
+use crate::shapes::cone::WgCone;
+#[cfg(feature = "dim3")]
+use crate::shapes::cylinder::WgCylinder;
 
 // NOTE: this must match the type values in shape.wgsl
 pub enum GpuShapeType {
