@@ -24,7 +24,7 @@ wgcore::test_shader_compilation!(WgProjection);
 
 #[cfg(test)]
 pub(crate) mod test_utils {
-    use crate::projection::GpuProjectionResult;
+    use crate::queries::GpuProjectionResult;
     use crate::{dim_shader_defs, substitute_aliases};
     use nalgebra::vector;
     #[cfg(feature = "dim2")]

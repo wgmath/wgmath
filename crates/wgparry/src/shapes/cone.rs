@@ -25,7 +25,7 @@ mod test {
     #[futures_test::test]
     #[serial_test::serial]
     async fn gpu_cone() {
-        crate::projection::test_utils::test_point_projection::<WgCone, _>(
+        crate::queries::test_utils::test_point_projection::<WgCone, _>(
             "Cone",
             Cone::new(1.0, 0.5),
             |device, shapes, usages| GpuVector::init(device, shapes, usages).into_inner(),

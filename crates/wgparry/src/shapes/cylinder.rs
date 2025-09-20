@@ -24,7 +24,7 @@ mod test {
     #[futures_test::test]
     #[serial_test::serial]
     async fn gpu_cylinder() {
-        crate::projection::test_utils::test_point_projection::<WgCylinder, _>(
+        crate::queries::test_utils::test_point_projection::<WgCylinder, _>(
             "Cylinder",
             Cylinder::new(1.0, 0.5),
             |device, shapes, usages| GpuVector::init(device, shapes, usages).into_inner(),

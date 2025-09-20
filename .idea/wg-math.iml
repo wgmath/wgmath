@@ -10,7 +10,6 @@
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/wgml/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/wgcore/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/crates/wgrapier/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/wgebra/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/wgsparkl/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/wgsparkl/src" isTestSource="false" />
@@ -26,6 +25,7 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/wgml-chat/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/wgebra/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/wgml-bench/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/wgrapier/crates/wgrapier3d/examples" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/crates/wgml-chat/target" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>

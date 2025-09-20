@@ -5,6 +5,7 @@
 pub mod composer;
 pub mod gpu;
 pub mod hot_reloading;
+pub mod indirect;
 pub mod kernel;
 pub mod shader;
 pub mod shapes;

@@ -38,3 +38,4 @@ nalgebra = { version = "0.33", features = ["rand"] }
 futures-test = "0.3"
 serial_test = "3"
 approx = "0.5"
+rand = "0.9"

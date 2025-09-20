@@ -28,8 +28,8 @@ impl GpuInstance {
                     label: None,
                     required_features: wgpu::Features::TIMESTAMP_QUERY,
                     required_limits: wgpu::Limits {
-                        max_buffer_size: 1_000_000_000,
-                        max_storage_buffer_binding_size: 1_000_000_000,
+                        max_buffer_size: 5_000_000_000,
+                        max_storage_buffer_binding_size: 4_000_000_000,
                         ..Default::default()
                     },
                     memory_hints: Default::default(),

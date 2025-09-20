@@ -9,9 +9,9 @@
 #endif
 
 @group(0) @binding(0)
-var<storage, read_write> mprops: array<Body::MassProperties>;
+var<storage, read_write> mprops: array<Body::WorldMassProperties>;
 @group(0) @binding(1)
-var<storage, read> local_mprops: array<Body::MassProperties>;
+var<storage, read> local_mprops: array<Body::LocalMassProperties>;
 #if DIM == 2
 @group(0) @binding(2)
 var<storage, read_write> poses: array<Pose::Sim2>;

@@ -6,20 +6,28 @@
 /// A pair of contact points between two shapes.
 struct Contact {
     /// The contact point on the first shape.
-    point1: vec3<f32>,
-    /// The contact pointon the second shape.
-    point2: vec3<f32>,
+    point_a: vec3<f32>,
+    /// The contact point on the second shape.
+    point_b: vec3<f32>,
     /// The first shape’s normal at its contact point.
-    normal1: vec3<f32>,
+    normal_a: vec3<f32>,
     /// The second shape’s normal at its contact point.
-    normal2: vec3<f32>,
+    normal_b: vec3<f32>,
     /// The distance between the two contact points.
     dist: f32,
 }
 
+/// Contact information with collider indices.
+struct IndexedContact {
+    /// The contact information.
+    contact: Contact,
+    /// Collider pair that resulted in this contact.
+    colliders: vec2<u32>,
+}
+
 
 /// Computes the contact between two balls.
-fn ballBall(pose12: Pose::Sim3, ball1: Ball::Ball, ball2: Ball::Ball) -> Contact {
+fn ball_ball(pose12: Pose::Sim3, ball1: Ball::Ball, ball2: Ball::Ball) -> Contact {
     let r1 = ball1.radius;
     let r2 = ball2.radius;
     let center2_1 = pose12.translation_scale.xyz;

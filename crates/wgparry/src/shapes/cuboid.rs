@@ -28,7 +28,7 @@ mod test {
     #[futures_test::test]
     #[serial_test::serial]
     async fn gpu_cuboid() {
-        crate::projection::test_utils::test_point_projection::<WgCuboid, _>(
+        crate::queries::test_utils::test_point_projection::<WgCuboid, _>(
             "Cuboid",
             #[cfg(feature = "dim2")]
             Cuboid::new(vector![1.0, 2.0]),

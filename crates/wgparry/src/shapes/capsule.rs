@@ -25,7 +25,7 @@ mod test {
     #[futures_test::test]
     #[serial_test::serial]
     async fn gpu_capsule() {
-        crate::projection::test_utils::test_point_projection::<WgCapsule, _>(
+        crate::queries::test_utils::test_point_projection::<WgCapsule, _>(
             "Capsule",
             Capsule::new_y(1.0, 0.5),
             |device, shapes, usages| GpuVector::encase(device, shapes, usages).into_inner(),

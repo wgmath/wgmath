@@ -1,14 +1,15 @@
 //! Force and velocity integration.
 
-use crate::dynamics::body::{GpuBodySet, WgBody};
+use crate::dynamics::{GpuBodySet, GpuSimParams, WgBody, WgSimParams};
 use wgcore::kernel::KernelDispatch;
+use wgcore::tensor::GpuScalar;
 use wgcore::Shader;
 use wgparry::{dim_shader_defs, substitute_aliases};
 use wgpu::{ComputePass, ComputePipeline, Device};
 
 #[derive(Shader)]
 #[shader(
-    derive(WgBody),
+    derive(WgSimParams, WgBody),
     src = "integrate.wgsl",
     src_fn = "substitute_aliases",
     shader_defs = "dim_shader_defs"
@@ -24,7 +25,13 @@ impl WgIntegrate {
 
     /// Dispatch an invocation of [`WgIntegrate::integrate`] for integrating forces and velocities
     /// of every rigid-body in the given [`GpuBodySet`]:
-    pub fn dispatch(&self, device: &Device, pass: &mut ComputePass, bodies: &GpuBodySet) {
+    pub fn dispatch(
+        &self,
+        device: &Device,
+        pass: &mut ComputePass,
+        sim_params: &GpuScalar<GpuSimParams>,
+        bodies: &GpuBodySet,
+    ) {
         KernelDispatch::new(device, pass, &self.integrate)
             .bind0([
                 bodies.mprops.buffer(),
@@ -32,6 +39,7 @@ impl WgIntegrate {
                 bodies.poses.buffer(),
                 bodies.vels.buffer(),
             ])
+            .bind(1, [sim_params.buffer()])
             .dispatch(bodies.len().div_ceil(Self::WORKGROUP_SIZE));
     }
 }

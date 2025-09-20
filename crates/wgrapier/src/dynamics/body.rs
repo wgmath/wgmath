@@ -1,6 +1,7 @@
 //! Rigid-body definition and set.
 
 use encase::ShaderType;
+use nalgebra::Vector4;
 use num_traits::Zero;
 use rapier::geometry::ColliderHandle;
 use rapier::prelude::MassProperties;
@@ -42,48 +43,81 @@ pub struct GpuVelocity {
 #[derive(ShaderType, Copy, Clone, PartialEq)]
 #[repr(C)]
 /// Rigid-body mass-properties, with a layout compatible with the corresponding WGSL struct.
-pub struct GpuMassProperties {
-    /// The inverse angular inertia tensor.
-    pub inv_inertia: AngularInertia<f32>,
+pub struct GpuLocalMassProperties {
+    #[cfg(feature = "dim2")]
+    pub inv_inertia_sqrt: f32,
+    #[cfg(feature = "dim3")]
+    inv_ref_frame: Vector4<f32>,
+    #[cfg(feature = "dim3")]
+    pub inv_principal_inertia_sqrt: nalgebra::Vector3<f32>,
     /// The inverse mass.
     pub inv_mass: Vector<f32>,
     /// The center-of-mass.
     pub com: Vector<f32>, // ShaderType isn’t implemented for Point
 }
 
-impl From<MassProperties> for GpuMassProperties {
+#[derive(ShaderType, Copy, Clone, PartialEq)]
+#[repr(C)]
+/// Rigid-body mass-properties, with a layout compatible with the corresponding WGSL struct.
+pub struct GpuWorldMassProperties {
+    /// The inverse angular inertia tensor.
+    pub inv_inertia_sqrt: AngularInertia<f32>,
+    /// The inverse mass.
+    pub inv_mass: Vector<f32>,
+    /// The center-of-mass.
+    pub com: Vector<f32>, // ShaderType isn’t implemented for Point
+}
+
+impl From<MassProperties> for GpuLocalMassProperties {
     fn from(props: MassProperties) -> Self {
-        GpuMassProperties {
+        GpuLocalMassProperties {
             #[cfg(feature = "dim2")]
-            inv_inertia: props.inv_principal_inertia_sqrt * props.inv_principal_inertia_sqrt,
+            inv_inertia_sqrt: props.inv_principal_inertia_sqrt,
             #[cfg(feature = "dim3")]
-            inv_inertia: props.reconstruct_inverse_inertia_matrix(),
+            inv_principal_inertia_sqrt: props.inv_principal_inertia_sqrt,
+            #[cfg(feature = "dim3")]
+            inv_ref_frame: props.principal_inertia_local_frame.coords,
             inv_mass: Vector::repeat(props.inv_mass),
             com: props.local_com.coords,
         }
     }
 }
 
-impl Default for GpuMassProperties {
+impl Default for GpuLocalMassProperties {
     fn default() -> Self {
-        GpuMassProperties {
+        GpuLocalMassProperties {
             #[rustfmt::skip]
             #[cfg(feature = "dim2")]
-            inv_inertia: 1.0,
+            inv_inertia_sqrt: 1.0,
             #[cfg(feature = "dim3")]
-            inv_inertia: AngularInertia::identity(),
+            inv_ref_frame: Vector4::w(),
+            #[cfg(feature = "dim3")]
+            inv_principal_inertia_sqrt: Vector::repeat(1.0),
             inv_mass: Vector::repeat(1.0),
             com: Vector::zeros(),
         }
     }
 }
 
+impl Default for GpuWorldMassProperties {
+    fn default() -> Self {
+        GpuWorldMassProperties {
+            #[rustfmt::skip]
+            #[cfg(feature = "dim2")]
+            inv_inertia_sqrt: 1.0,
+            #[cfg(feature = "dim3")]
+            inv_inertia_sqrt: AngularInertia::identity(),
+            inv_mass: Vector::repeat(1.0),
+            com: Vector::zeros(),
+        }
+    }
+}
 /// A set of rigid-bodies stored on the gpu.
 pub struct GpuBodySet {
     len: u32,
     shapes_data: Vec<GpuShape>, // TODO: exists only for convenience in the MPM simulation.
-    pub(crate) mprops: GpuVector<GpuMassProperties>,
-    pub(crate) local_mprops: GpuVector<GpuMassProperties>,
+    pub(crate) mprops: GpuVector<GpuWorldMassProperties>,
+    pub(crate) local_mprops: GpuVector<GpuLocalMassProperties>,
     pub(crate) vels: GpuVector<GpuVelocity>,
     pub(crate) poses: GpuVector<GpuSim>,
     // TODO: support other shape types.
@@ -101,9 +135,9 @@ pub struct GpuBodySet {
 /// Helper struct for defining a rigid-body to be added to a [`GpuBodySet`].
 pub struct BodyDesc {
     /// The rigid-body’s mass-properties in local-space.
-    pub local_mprops: GpuMassProperties,
+    pub local_mprops: GpuLocalMassProperties,
     /// The rigid-body’s mass-properties in world-space.
-    pub mprops: GpuMassProperties,
+    pub mprops: GpuWorldMassProperties,
     /// The rigid-body’s linear and angular velocities.
     pub vel: GpuVelocity,
     /// The rigid-body’s world-space pose.
@@ -188,14 +222,7 @@ impl GpuBodySet {
                 } else {
                     zero_mprops.into()
                 },
-                mprops: if two_ways_coupling {
-                    rb.mass_properties()
-                        .local_mprops
-                        .transform_by(rb.position())
-                        .into()
-                } else {
-                    zero_mprops.into()
-                },
+                mprops: Default::default(),
             };
             gpu_bodies.push(desc);
         }
@@ -267,12 +294,12 @@ impl GpuBodySet {
     }
 
     /// GPU storage buffer containing the world-space mass-properties of every rigid-body.
-    pub fn mprops(&self) -> &GpuVector<GpuMassProperties> {
+    pub fn mprops(&self) -> &GpuVector<GpuWorldMassProperties> {
         &self.mprops
     }
 
     /// GPU storage buffer containing the local-space mass-properties of every rigid-body.
-    pub fn local_mprops(&self) -> &GpuVector<GpuMassProperties> {
+    pub fn local_mprops(&self) -> &GpuVector<GpuLocalMassProperties> {
         &self.local_mprops
     }
 

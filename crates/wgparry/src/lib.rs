@@ -10,8 +10,11 @@ pub extern crate parry3d as parry;
 use naga_oil::compose::ShaderDefValue;
 use std::collections::HashMap;
 
+pub mod bounding_volumes;
+pub mod broad_phase;
 pub mod queries;
 pub mod shapes;
+pub mod utils;
 
 /// Shader definitions that depend on whether we are building the 2D or 3D version of this crate.
 pub fn dim_shader_defs() -> HashMap<String, ShaderDefValue> {

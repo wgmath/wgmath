@@ -1,6 +1,7 @@
 //! Utilities for initializing and slicing tensors, matrices, vectors, and scalars gpu storage
 //! buffers.
 
+use crate::gpu::GpuInstance;
 use crate::shapes::ViewShape;
 use bytemuck::Pod;
 use encase::internal::{CreateFrom, ReadFrom, WriteInto};
@@ -334,6 +335,40 @@ impl<T, const DIM: usize> GpuTensor<T, DIM> {
         drop(data);
         self.buffer.unmap();
         Ok(())
+    }
+
+    pub async fn slow_read(&self, gpu: &GpuInstance) -> Vec<T>
+    where
+        T: Pod,
+    {
+        // Create staging buffer and copy into it.
+        let staging: GpuTensor<T, DIM> = TensorBuilder::tensor(
+            self.shape(),
+            BufferUsages::MAP_READ | BufferUsages::COPY_DST,
+        )
+        .build(gpu.device());
+
+        let mut encoder = gpu.device().create_command_encoder(&Default::default());
+        staging.copy_from(&mut encoder, self);
+        gpu.queue().submit(Some(encoder.finish()));
+        staging.read(gpu.device()).await.unwrap()
+    }
+
+    pub async fn slow_read_encased(&self, gpu: &GpuInstance) -> Vec<T>
+    where
+        T: ShaderType + ReadFrom + ShaderSize + CreateFrom,
+    {
+        // Create staging buffer and copy into it.
+        let staging: GpuTensor<T, DIM> = TensorBuilder::tensor(
+            self.shape(),
+            BufferUsages::MAP_READ | BufferUsages::COPY_DST,
+        )
+        .build_uninit_encased(gpu.device());
+
+        let mut encoder = gpu.device().create_command_encoder(&Default::default());
+        staging.copy_from_encased(&mut encoder, self);
+        gpu.queue().submit(Some(encoder.finish()));
+        staging.read_encased(gpu.device()).await.unwrap()
     }
 
     /// Reads the buffer’s content into a vector.

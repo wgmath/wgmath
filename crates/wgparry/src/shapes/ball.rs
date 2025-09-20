@@ -27,7 +27,7 @@ mod test {
     #[futures_test::test]
     #[serial_test::serial]
     async fn gpu_ball() {
-        crate::projection::test_utils::test_point_projection::<WgBall, _>(
+        crate::queries::test_utils::test_point_projection::<WgBall, _>(
             "Ball",
             Ball::new(0.5),
             |device, shapes, usages| GpuVector::init(device, shapes, usages).into_inner(),

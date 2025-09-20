@@ -10,17 +10,34 @@
 
 
 /// The mass-properties of a rigid-body.
-/// Note that the mass-properties may be expressed either in the rigid-body’s local-space or in world-space,
-/// depending on its provenance. Usually, the world-space and local-space mass-properties will be stored in
-/// two separate buffers.
-struct MassProperties {
+struct LocalMassProperties {
     // TODO: a representation with Quaternion & vec3 (for frame & principal inertia) would be much more compact and make
     //       this struct have the size of a mat4x4
 #if DIM == 2
    /// The rigid-body’s inverse inertia tensor.
-   inv_inertia: f32,
+   inv_inertia_sqrt: f32,
 #else
-   inv_inertia: mat3x3<f32>,
+   inertia_ref_frame: Rot::Quat,
+   inv_principal_inertia_sqrt: vec3<f32>,
+#endif
+   /// The rigid-body’s inverse mass along each coordinate axis.
+   ///
+   /// Allowing different values along each axis allows the user to specify 0 along each axis.
+   /// By setting zero, the linear motion along the corresponding world-space axis will be locked.
+   inv_mass: Vector,
+   /// The rigid-body’s center of mass.
+   com: Vector,
+}
+
+/// The mass-properties of a rigid-body.
+struct WorldMassProperties {
+    // TODO: a representation with Quaternion & vec3 (for frame & principal inertia) would be much more compact and make
+    //       this struct have the size of a mat4x4
+#if DIM == 2
+   /// The rigid-body’s inverse inertia tensor.
+   inv_inertia_sqrt: f32,
+#else
+   inv_inertia_sqrt: mat3x3<f32>,
 #endif
    /// The rigid-body’s inverse mass along each coordinate axis.
    ///
@@ -64,17 +81,17 @@ struct RigidBodyState {
 }
 
 /// Computes new velocities after applying the given impulse.
-fn applyImpulse(mprops: MassProperties, velocity: Velocity, imp: Impulse) -> Velocity {
+fn applyImpulse(mprops: WorldMassProperties, velocity: Velocity, imp: Impulse) -> Velocity {
     let acc_lin = mprops.inv_mass * imp.linear;
-    let acc_ang = mprops.inv_inertia * imp.angular;
+    let acc_ang = mprops.inv_inertia_sqrt * (mprops.inv_inertia_sqrt * imp.angular);
     return Velocity(velocity.linear + acc_lin, velocity.angular + acc_ang);
 }
 
 
 /// Computes new velocities after integrating forces by a timestep equal to `dt`.
-fn integrateForces(mprops: MassProperties, velocity: Velocity, force: Force, dt: f32) -> Velocity {
+fn integrateForces(mprops: WorldMassProperties, velocity: Velocity, force: Force, dt: f32) -> Velocity {
     let acc_lin = mprops.inv_mass * force.linear;
-    let acc_ang = mprops.inv_inertia * force.angular;
+    let acc_ang = mprops.inv_inertia_sqrt * (mprops.inv_inertia_sqrt * force.angular);
     return Velocity(velocity.linear + acc_lin * dt, velocity.angular + acc_ang * dt);
 }
 
@@ -96,9 +113,9 @@ fn integrateVelocity(pose: Transform, vels: Velocity, local_com: Vector, dt: f32
 }
 
 /// Computes the new world-space mass-properties based on the local-space mass-properties and its transform.
-fn updateMprops(pose: Transform, local_mprops: MassProperties) -> MassProperties {
+fn updateMprops(pose: Transform, local_mprops: LocalMassProperties) -> WorldMassProperties {
     let world_com = Pose::mulPt(pose, local_mprops.com);
-    return MassProperties(local_mprops.inv_inertia, local_mprops.inv_mass, world_com);
+    return WorldMassProperties(local_mprops.inv_inertia_sqrt, local_mprops.inv_mass, world_com);
 }
 
 /// Computes the linear velocity at a given point.
@@ -124,12 +141,17 @@ fn integrateVelocity(pose: Transform, vels: Velocity, local_com: Vector, dt: f32
 }
 
 /// Computes the new world-space mass-properties based on the local-space mass-properties and its transform.
-fn updateMprops(pose: Transform, local_mprops: MassProperties) -> MassProperties {
+fn updateMprops(pose: Transform, local_mprops: LocalMassProperties) -> WorldMassProperties {
     let world_com = Pose::mulPt(pose, local_mprops.com);
-    let rot_mat = Rot::toMatrix(pose.rotation);
-    let world_inv_inertia = rot_mat * local_mprops.inv_inertia * transpose(rot_mat);
+    let rot_mat = Rot::toMatrix(Rot::mul(pose.rotation, local_mprops.inertia_ref_frame));
+    let diag = mat3x3(
+        vec3(local_mprops.inv_principal_inertia_sqrt.x, 0.0, 0.0),
+        vec3(0.0, local_mprops.inv_principal_inertia_sqrt.y, 0.0),
+        vec3(0.0, 0.0, local_mprops.inv_principal_inertia_sqrt.z),
+    );
+    let world_inv_inertia = rot_mat * diag * transpose(rot_mat);
 
-    return MassProperties(world_inv_inertia, local_mprops.inv_mass, world_com);
+    return WorldMassProperties(world_inv_inertia, local_mprops.inv_mass, world_com);
 }
 
 /// Computes the linear velocity at a given point.

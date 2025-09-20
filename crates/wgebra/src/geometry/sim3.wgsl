@@ -30,6 +30,12 @@ fn inv(sim: Sim3) -> Sim3 {
     return Sim3(rotation, vec4(translation, scale));
 }
 
+/// Computes `inv(lhs) * rhs`.
+fn invMul(lhs: Sim3, rhs: Sim3) -> Sim3 {
+    // TODO: optimize?
+    return mul(inv(lhs), rhs);
+}
+
 /// Multiplies a similarity and a point (scales, rotates then translates the point).
 fn mulPt(sim: Sim3, pt: vec3<f32>) -> vec3<f32> {
     return Rot::mulVec(sim.rotation, pt * sim.translation_scale.w) + sim.translation_scale.xyz;

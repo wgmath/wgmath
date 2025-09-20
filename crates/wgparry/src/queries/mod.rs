@@ -1,6 +1,7 @@
+mod contact;
 mod projection;
 mod ray;
-// mod contact;
 
+pub use contact::*;
 pub use projection::*;
 pub use ray::*;
