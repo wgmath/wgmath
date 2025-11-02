@@ -30,8 +30,8 @@ rust.unexpected_cfgs = { level = "warn", check-cfg = [
 
 
 [patch.crates-io]
-#parry3d = { git = "https://github.com/dimforge/parry", branch = "encase" }
-#parry2d = { git = "https://github.com/dimforge/parry", branch = "encase" }
+#parry3d = { git = "https://github.com/wgmath/parry", branch = "encase" }
+#parry2d = { git = "https://github.com/wgmath/parry", branch = "encase" }
 #encase = { git = "https://github.com/sebcrozet/encase", branch = "nalgebra-points2" }
 #kiss3d = { path = "../kiss3d" }
 #parry3d = { path = "../parry/crates/parry3d" }

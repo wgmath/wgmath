@@ -14,16 +14,14 @@
 **wgmath** is a set of [Rust](https://www.rust-lang.org/) libraries exposing
 re-usable [WebGPU](https://www.w3.org/TR/WGSL/) shaders for scientific computing including:
 
-- The [**wgcore** crate](https://github.com/dimforge/wgmath/tree/main/crates/wgcore), a centerpiece of the **wgmath**
+- The [**wgcore** crate](https://github.com/wgmath/wgmath/tree/main/crates/wgcore), a centerpiece of the **wgmath**
   ecosystem, exposes a set of proc-macros to facilitate sharing and composing shaders across Rust libraries.
-- Linear algebra with the [**wgebra** crate](https://github.com/dimforge/wgmath/tree/main/crates/wgebra).
-- AI (Large Language Models) with the [**wgml** crate](https://github.com/dimforge/wgml/tree/main).
+- Linear algebra with the [**wgebra** crate](https://github.com/wgmath/wgmath/tree/main/crates/wgebra).
+- AI (Large Language Models) with the [**wgml** crate](https://github.com/wgmath/wgml/tree/main).
 - Collision-detection with the
-  [**wgparry2d** and **wgparry3d**](https://github.com/dimforge/wgmath/tree/main/crates/wgparry) crates (still very
-  WIP).
+  [**wgparry2d** and **wgparry3d**](https://github.com/wgmath/wgmath/tree/main/crates/wgparry) crates.
 - Rigid-body physics with the
-  [**wgrapier2d** and **wgrapier3d**](https://github.com/dimforge/wgmath/tree/main/crates/wgrapier3d) crates (still very
-  WIP).
+  [**wgrapier2d** and **wgrapier3d**](https://github.com/wgmath/wgmath/tree/main/crates/wgrapier) crates.
 
 By targeting WebGPU, these libraries run on most GPUs, including on mobile and on the web. It aims to promote open and
 cross-platform GPU computing for scientific applications, a field currently strongly dominated by proprietary

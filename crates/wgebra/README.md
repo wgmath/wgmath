@@ -56,4 +56,4 @@ cargo test
 ## Benchmarks
 
 There is currently no benchmark in the `wgebra` repository itself. However, some benchmarks of the matrix multiplication
-kernels can be run from [wgml-bench](https://github.com/dimforge/wgml/tree/main/crates/wgml-bench).
+kernels can be run from [wgml-bench](https://github.com/wgmath/wgml/tree/main/crates/wgml-bench).

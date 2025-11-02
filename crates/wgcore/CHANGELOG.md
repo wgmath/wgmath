@@ -27,6 +27,6 @@
 
 ### Added
 
-- Add support for hot-reloading, see [#1](https://github.com/dimforge/wgmath/pull/1). This includes breaking changes to
+- Add support for hot-reloading, see [#1](https://github.com/wgmath/wgmath/pull/1). This includes breaking changes to
   the `Shader` trait.
-- Add support for shader overwriting, see [#1](https://github.com/dimforge/wgmath/pull/1).
+- Add support for shader overwriting, see [#1](https://github.com/wgmath/wgmath/pull/1).
