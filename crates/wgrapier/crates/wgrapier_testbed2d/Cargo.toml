@@ -1,7 +1,7 @@
 [package]
-name = "wgparry3d"
+name = "wgrapier_testbed2d"
 authors = ["Sébastien Crozet <developer@crozet.re>"]
-description = "Cross-platform 3D GPU collision-detection and geometry."
+description = "Cross-platform 2D rigid-body physics."
 homepage = "https://wgmath.rs"
 repository = "https://github.com/dimforge/wgmath"
 version = "0.2.0"
@@ -9,18 +9,18 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [lib]
-name = "wgparry3d"
-path = "../../src/lib.rs"
-required-features = ["dim3"]
+name = "wgrapier_testbed2d"
+path = "../../src_testbed/lib.rs"
+required-features = ["dim2"]
 
 [lints]
 rust.unexpected_cfgs = { level = "warn", check-cfg = [
-    'cfg(feature, values("dim2"))',
+    'cfg(feature, values("dim3"))',
 ] }
 
 [features]
-default = ["dim3"]
-dim3 = []
+default = ["dim2"]
+dim2 = []
 
 [dependencies]
 nalgebra = { workspace = true }
@@ -28,14 +28,18 @@ wgpu = { workspace = true }
 naga_oil = { workspace = true }
 bytemuck = { workspace = true }
 encase = { workspace = true }
-parry3d = { workspace = true }
 
 wgcore = { version = "0.2", path = "../../../wgcore", features = ["derive"] }
 wgebra = { version = "0.2", path = "../../../wgebra" }
+wgparry2d = { version = "0.2", path = "../../../wgparry/crates/wgparry2d" }
+wgrapier2d = { version = "0.2", path = "../wgrapier2d" }
+rapier2d = { version = "0.30", features = ["simd-stable"] }
+num-traits = "0.2"
+kiss3d = { version = "0.37.1", features = ["egui"] }
+web-time = "1"
 
 [dev-dependencies]
-nalgebra = { version = "0.34", features = ["rand"] }
+nalgebra = { version = "0.34", features = ["rand", "glam029"] }
 futures-test = "0.3"
 serial_test = "3"
 approx = "0.5"
-rand = "0.9"

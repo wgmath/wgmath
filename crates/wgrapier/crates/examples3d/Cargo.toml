@@ -1,0 +1,20 @@
+[package]
+name = "rapier-examples-3d"
+version = "0.1.0"
+authors = ["Sébastien Crozet <sebcrozet@dimforge.com>"]
+edition = "2024"
+
+[features]
+
+[dependencies]
+rand = "0.9"
+Inflector = "0.11"
+oorandom = "11"
+wgrapier_testbed3d = { path = "../wgrapier_testbed3d" }
+wgrapier3d = { path = "../wgrapier3d" }
+rapier3d = "0.30.0"
+kiss3d = "0.37.1"
+
+[[bin]]
+name = "all_examples3"
+path = "all_examples3.rs"
