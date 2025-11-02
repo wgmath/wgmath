@@ -370,11 +370,11 @@ mod tests {
             let output_usages = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
             let staging_usage = BufferUsages::MAP_READ | BufferUsages::COPY_DST;
 
-            let keys = GpuVector::init(gpu.device(), &keys_inp, input_usages);
+            let keys = GpuVector::init(gpu.device(), keys_inp, input_usages);
             let values = GpuVector::init(gpu.device(), &values_inp, input_usages);
-            let out_keys = GpuVector::init(gpu.device(), &keys_inp, output_usages);
+            let out_keys = GpuVector::init(gpu.device(), keys_inp, output_usages);
             let out_values = GpuVector::init(gpu.device(), &values_inp, output_usages);
-            let staging_keys = GpuVector::init(gpu.device(), &keys_inp, staging_usage);
+            let staging_keys = GpuVector::init(gpu.device(), keys_inp, staging_usage);
             let staging_values = GpuVector::init(gpu.device(), &values_inp, staging_usage);
             let num_points =
                 GpuScalar::init(gpu.device(), keys_inp.len() as u32, BufferUsages::STORAGE);

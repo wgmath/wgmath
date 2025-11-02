@@ -315,31 +315,50 @@ impl Lbvh {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::math::Isometry;
-    use na::Similarity3;
     use parry::bounding_volume::BoundingVolume;
     use wgcore::gpu::GpuInstance;
     use wgcore::kernel::CommandEncoderExt;
+
+    #[cfg(feature = "dim3")]
+    use na::{Similarity3, Vector3};
+    #[cfg(feature = "dim2")]
+    use na::{Similarity2, Vector2};
 
     #[futures_test::test]
     #[serial_test::serial]
     async fn tree_construction() {
         let storage = BufferUsages::STORAGE | BufferUsages::COPY_SRC;
         let gpu = GpuInstance::new().await.unwrap();
-        let mut lbvh = Lbvh::with_usages(gpu.device(), storage).unwrap();
+        let lbvh = Lbvh::from_device(gpu.device()).unwrap();
+        let mut state = LbvhState::with_usages(gpu.device(), storage).unwrap();
         const LEN: u32 = 1000;
         let poses: Vec<_> = (0..LEN)
             .map(|i| {
-                Similarity3::new(
-                    -Vector::new(i as f32, (i as f32).sin(), (i as f32).cos()),
-                    na::zero(),
-                    1.0,
-                )
+                #[cfg(feature = "dim3")]
+                {
+                    Similarity3::new(
+                        -Vector3::new(i as f32, (i as f32).sin(), (i as f32).cos()),
+                        na::zero(),
+                        1.0,
+                    )
+                }
+                #[cfg(feature = "dim2")]
+                {
+                    Similarity2::new(
+                        -Vector2::new(i as f32, (i as f32).sin()),
+                        0.0,
+                        1.0,
+                    )
+                }
             })
             .collect();
+        #[cfg(feature = "dim3")]
+        let gpu_poses_data: Vec<GpuSim> = poses.clone();
+        #[cfg(feature = "dim2")]
+        let gpu_poses_data: Vec<GpuSim> = poses.iter().map(|p| (*p).into()).collect();
         let shapes: Vec<_> = vec![GpuShape::ball(0.5); LEN as usize];
 
-        let gpu_poses = GpuVector::init(gpu.device(), &poses, storage);
+        let gpu_poses = GpuVector::init(gpu.device(), &gpu_poses_data, storage);
         let gpu_shapes = GpuVector::init(gpu.device(), &shapes, storage);
         let gpu_num_shapes = GpuScalar::init(
             gpu.device(),
@@ -354,12 +373,20 @@ mod test {
             .device()
             .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
         let mut pass = encoder.compute_pass("", None);
-        lbvh.launch(
+        lbvh.update_tree(
             gpu.device(),
             &mut pass,
+            &mut state,
             LEN,
             &gpu_poses,
             &gpu_shapes,
+            &gpu_num_shapes,
+        );
+        lbvh.find_pairs(
+            gpu.device(),
+            &mut pass,
+            &mut state,
+            LEN,
             &gpu_num_shapes,
             &gpu_collision_pairs,
             &gpu_collision_pairs_len,
@@ -369,22 +396,37 @@ mod test {
         gpu.queue().submit(Some(encoder.finish()));
 
         // Check result of `compute_domain`.
-        let domain = lbvh.domain_aabb.slow_read(&gpu).await[0];
+        let domain = state.domain_aabb.slow_read(&gpu).await[0];
         let pts: Vec<_> = poses
             .iter()
             .map(|p| p.isometry.translation.vector.into())
             .collect();
-        let domain_cpu = Aabb::from_points(&pts);
-        assert_eq!(domain_cpu.mins.coords, domain[0].xyz());
-        assert_eq!(domain_cpu.maxs.coords, domain[1].xyz());
+        let domain_cpu = Aabb::from_points(pts.iter().copied());
+        #[cfg(feature = "dim3")]
+        {
+            assert_eq!(domain_cpu.mins.coords, domain[0].xyz());
+            assert_eq!(domain_cpu.maxs.coords, domain[1].xyz());
+        }
+        #[cfg(feature = "dim2")]
+        {
+            assert_eq!(domain_cpu.mins.coords, domain[0].xy());
+            assert_eq!(domain_cpu.maxs.coords, domain[1].xy());
+        }
 
         // Check result of `compute_morton`.
-        let mortons = lbvh.unsorted_morton_keys.slow_read(&gpu).await;
+        let mortons = state.unsorted_morton_keys.slow_read(&gpu).await;
         let mut morton_cpu: Vec<_> = pts
             .iter()
             .map(|pt| {
                 let normalized = (pt - domain_cpu.mins).component_div(&domain_cpu.extents());
-                morton(normalized.x, normalized.y, normalized.z)
+                #[cfg(feature = "dim3")]
+                {
+                    morton(normalized.x, normalized.y, normalized.z)
+                }
+                #[cfg(feature = "dim2")]
+                {
+                    morton(normalized.x, normalized.y)
+                }
             })
             .collect();
         assert_eq!(morton_cpu, mortons);
@@ -393,21 +435,19 @@ mod test {
         let mut sorted_colliders_cpu: Vec<_> = (0..LEN).collect();
         sorted_colliders_cpu.sort_by_key(|i| morton_cpu[*i as usize]);
         morton_cpu.sort();
-        let mut sorted_mortons = lbvh.sorted_morton_keys.slow_read(&gpu).await;
-        let sorted_colliders = lbvh.sorted_colliders.slow_read(&gpu).await;
+        let sorted_mortons = state.sorted_morton_keys.slow_read(&gpu).await;
+        let sorted_colliders = state.sorted_colliders.slow_read(&gpu).await;
         assert_eq!(sorted_mortons, morton_cpu);
         assert_eq!(sorted_colliders, sorted_colliders_cpu);
 
         // Check result of `build`.
-        let mut tree = lbvh.tree.slow_read(&gpu).await;
+        let tree = state.tree.slow_read(&gpu).await;
 
         {
             // Check that a traversal covers all the nodes and that there is no loop.
             let mut visited = vec![false; tree.len()];
             let mut stack = vec![0];
-            let mut loops = 0;
             while let Some(curr) = stack.pop() {
-                loops += 1;
                 let node = &tree[curr];
                 assert!(!visited[curr]);
                 visited[curr] = true;
@@ -438,7 +478,7 @@ mod test {
                     node.aabb(),
                     Aabb::from_half_extents(
                         poses[collider as usize].isometry.translation.vector.into(),
-                        Vector::repeat(0.5)
+                        parry::math::Vector::repeat(0.5)
                     )
                 );
             }
@@ -458,9 +498,10 @@ mod test {
         }
     }
 
+    #[cfg(feature = "dim3")]
     // Expands a 10-bit integer into 30 bits
     // by inserting 2 zeros after each bit.
-    fn expandBits(v: u32) -> u32 {
+    fn expand_bits(v: u32) -> u32 {
         let mut vv = (v * 0x00010001) & 0xFF0000FF;
         vv = (vv * 0x00000101) & 0x0F00F00F;
         vv = (vv * 0x00000011) & 0xC30C30C3;
@@ -468,16 +509,40 @@ mod test {
         vv
     }
 
+    #[cfg(feature = "dim3")]
     // Calculates a 30-bit Morton code for the
     // given 3D point located within the unit cube [0,1].
     fn morton(x: f32, y: f32, z: f32) -> u32 {
-        let scaled_x = (x * 1024.0).max(0.0).min(1023.0);
-        let scaled_y = (y * 1024.0).max(0.0).min(1023.0);
-        let scaled_z = (z * 1024.0).max(0.0).min(1023.0);
-        let xx = expandBits(scaled_x as u32);
-        let yy = expandBits(scaled_y as u32);
-        let zz = expandBits(scaled_z as u32);
+        let scaled_x = (x * 1024.0).clamp(0.0, 1023.0);
+        let scaled_y = (y * 1024.0).clamp(0.0, 1023.0);
+        let scaled_z = (z * 1024.0).clamp(0.0, 1023.0);
+        let xx = expand_bits(scaled_x as u32);
+        let yy = expand_bits(scaled_y as u32);
+        let zz = expand_bits(scaled_z as u32);
         xx * 4 + yy * 2 + zz
+    }
+
+    #[cfg(feature = "dim2")]
+    // Expands a 16-bit integer into 32 bits
+    // by inserting 1 zero after each bit.
+    fn expand_bits(v: u32) -> u32 {
+        let mut vv = (v & 0x0000ffff) | ((v & 0x0000ffff) << 16);
+        vv = (vv & 0x00ff00ff) | ((vv & 0x00ff00ff) << 8);
+        vv = (vv & 0x0f0f0f0f) | ((vv & 0x0f0f0f0f) << 4);
+        vv = (vv & 0x33333333) | ((vv & 0x33333333) << 2);
+        vv = (vv & 0x55555555) | ((vv & 0x55555555) << 1);
+        vv
+    }
+
+    #[cfg(feature = "dim2")]
+    // Calculates a 32-bit Morton code for the
+    // given 2D point located within the unit square [0,1].
+    fn morton(x: f32, y: f32) -> u32 {
+        let scaled_x = (x * 65536.0).clamp(0.0, 65535.0);
+        let scaled_y = (y * 65536.0).clamp(0.0, 65535.0);
+        let xx = expand_bits(scaled_x as u32);
+        let yy = expand_bits(scaled_y as u32);
+        xx * 2 + yy
     }
     //
     // struct PrefixLen<'a> {
