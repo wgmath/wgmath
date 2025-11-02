@@ -44,4 +44,4 @@ use wgebra::{WgSim2, WgSim3};
 /// 4. Keep points that penetrate the reference feature as contact points.
 pub struct WgPolygonalFeature;
 
-wgcore::test_shader_compilation!(WgPolygonalFeature);
+wgcore::test_shader_compilation!(WgPolygonalFeature, wgcore, crate::dim_shader_defs());

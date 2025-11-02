@@ -107,4 +107,4 @@ impl WgNarrowPhase {
     }
 }
 
-test_shader_compilation!(WgNarrowPhase);
+test_shader_compilation!(WgNarrowPhase, wgcore, crate::dim_shader_defs());

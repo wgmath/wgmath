@@ -465,4 +465,4 @@ impl WgSolver {
     }
 }
 
-wgcore::test_shader_compilation!(WgSolver);
+wgcore::test_shader_compilation!(WgSolver, wgcore, wgparry::dim_shader_defs());

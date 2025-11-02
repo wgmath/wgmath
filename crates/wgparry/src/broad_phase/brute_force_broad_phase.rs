@@ -93,4 +93,4 @@ impl WgBruteForceBroadPhase {
     }
 }
 
-test_shader_compilation!(WgBruteForceBroadPhase);
+test_shader_compilation!(WgBruteForceBroadPhase, wgcore, crate::dim_shader_defs());
