@@ -1,7 +1,10 @@
-//! The segment shape.
+//! Line segment shape.
+//!
+//! A segment is a straight line connecting two points A and B. It's a fundamental
+//! building block used by other shapes like capsules and is useful for ray-casting
+//! and distance queries.
 
-use crate::projection::WgProjection;
-use crate::ray::WgRay;
+use crate::queries::{WgProjection, WgRay};
 use crate::{dim_shader_defs, substitute_aliases};
 use wgcore::Shader;
 use wgebra::{WgSim2, WgSim3};
@@ -13,7 +16,15 @@ use wgebra::{WgSim2, WgSim3};
     src_fn = "substitute_aliases",
     shader_defs = "dim_shader_defs"
 )]
-/// Shader defining the segment shape as well as its ray-casting and point-projection functions.
+/// GPU shader for the line segment shape.
+///
+/// This shader provides WGSL implementations for:
+/// - Ray-casting against segments.
+/// - Point projection onto segments (finding the closest point on the segment).
+///
+/// A segment is defined by two endpoints A and B. Point projection operations
+/// find the closest point on the segment to a given query point, which may be
+/// one of the endpoints or an interior point.
 pub struct WgSegment;
 
 // TODO:

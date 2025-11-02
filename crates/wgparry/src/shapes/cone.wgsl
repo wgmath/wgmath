@@ -1,3 +1,14 @@
+//! Cone Shape Module (3D only)
+//!
+//! This module provides geometric operations for cones.
+//! A cone is defined by its half-height (distance from base center to apex)
+//! and base radius.
+//!
+//! The cone is oriented along the Y axis with:
+//! - Apex at (0, half_height, 0)
+//! - Base center at (0, -half_height, 0)
+//! - Base is a circle in the XZ plane
+
 #if DIM == 2
     #import wgebra::sim2 as Pose
 #else
@@ -9,11 +20,15 @@
 
 #define_import_path wgparry::cone
 
-/// A cone, defined by its radius.
+/// A cone shape with circular base (3D only).
+///
+/// The cone is aligned with the Y axis:
+/// - Base at y = -half_height
+/// - Apex at y = +half_height
 struct Cone {
-    /// The cone’s principal axis.
+    /// Half of the cone's height (distance from base center to apex).
     half_height: f32,
-    /// The cone’s radius.
+    /// Radius of the circular base.
     radius: f32,
 }
 
