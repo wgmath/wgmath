@@ -1,3 +1,8 @@
+//! Cuboid (Box/Rectangle) Shape Module
+//!
+//! This module provides geometric operations for axis-aligned boxes.
+//! A cuboid is defined by its half-extents along each dimension.
+
 #if DIM == 2
     #import wgebra::sim2 as Pose
 #else
@@ -5,23 +10,19 @@
 #endif
 #import wgparry::ray as Ray
 #import wgparry::projection as Proj
+#import wgparry::polygonal_feature as Feat
 
 #define_import_path wgparry::cuboid
 
-/// The result of a point projection.
-struct ProjectionResult {
-    /// The point’s projection on the shape.
-    /// This can be equal to the original point if the point was inside
-    /// of the shape and the projection function doesn’t always project
-    /// on the boundary.
-    point: Vector,
-    /// Is the point inside of the shape?
-    is_inside: bool,
-}
 
-
-/// A box, defined by its half-extents (half-length alon geach dimension).
+/// A cuboid (box in 3D, rectangle in 2D) defined by half-extents.
+///
+/// The cuboid is centered at the origin in its local frame.
+/// Each dimension extends from -halfExtents to +halfExtents.
 struct Cuboid {
+    /// Half-widths along each axis.
+    /// e.g., halfExtents = (1, 2, 3) means the box extends from
+    /// (-1, -2, -3) to (1, 2, 3) in local coordinates.
     halfExtents: Vector
 }
 
@@ -90,6 +91,84 @@ fn projectPointOnBoundary(box: Cuboid, pose: Transform, pt: Vector) -> Proj::Pro
     return result;
 }
 
+fn local_support_point(box: Cuboid, axis: Vector) -> Vector {
+    return select(-box.halfExtents, box.halfExtents, axis >= Vector(0.0));
+}
+
+#if DIM == 2
+fn support_face(box: Cuboid, axis: Vector) -> Feat::PolygonalFeature {
+    let he = box.halfExtents;
+    let abs_dir = abs(axis);
+
+    if abs_dir.x >= abs_dir.y {
+        let sign = select(-1.0, 1.0, axis[0] > 0.0);
+        return Feat::PolygonalFeature(
+            array(
+                vec2(he.x * sign, -he.y),
+                vec2(he.x * sign, he.y),
+            ),
+            2,
+        );
+    } else {
+        let sign = select(-1.0, 1.0, axis[1] > 0.0);
+        return Feat::PolygonalFeature(
+            array(
+                vec2(he.x, he.y * sign),
+                vec2(-he.x, he.y * sign),
+            ),
+            2,
+        );
+    }
+}
+#else
+fn support_face(box: Cuboid, axis: Vector) -> Feat::PolygonalFeature {
+    let he = box.halfExtents;
+    let abs_dir = abs(axis);
+    var iamax = 2;
+
+    if abs_dir.x >= abs_dir.y && abs_dir.x >= abs_dir.z {
+        iamax = 0;
+    } else if abs_dir.y >= abs_dir.x && abs_dir.y >= abs_dir.z {
+        iamax = 1;
+    }
+
+    let sign = select(-1.0, 1.0, axis[iamax] > 0.0);
+
+    // TODO PERF: avoid branching using some index arithmetic?
+    if iamax == 0 {
+        return Feat::PolygonalFeature(
+            array(
+                vec3(he.x * sign, he.y, he.z),
+                vec3(he.x * sign, -he.y, he.z),
+                vec3(he.x * sign, -he.y, -he.z),
+                vec3(he.x * sign, he.y, -he.z),
+            ),
+            4,
+        );
+    } else if iamax == 1 {
+        return Feat::PolygonalFeature(
+            array(
+                vec3(he.x, he.y * sign, he.z),
+                vec3(-he.x, he.y * sign, he.z),
+                vec3(-he.x, he.y * sign, -he.z),
+                vec3(he.x, he.y * sign, -he.z),
+            ),
+            4,
+        );
+    } else {
+        // iamax == 2
+        return Feat::PolygonalFeature(
+            array(
+                vec3(he.x, he.y, he.z * sign),
+                vec3(he.x, -he.y, he.z * sign),
+                vec3(-he.x, -he.y, he.z * sign),
+                vec3(-he.x, he.y, he.z * sign),
+            ),
+            4,
+        );
+    }
+}
+#endif
 
 // FIXME: ray.wgsl needs to support 2d/3d for these implementations to be commented-out.
 ///*

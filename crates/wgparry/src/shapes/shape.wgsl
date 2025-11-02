@@ -1,3 +1,18 @@
+//! Generic Shape Enumeration Module
+//!
+//! This module provides a unified interface for working with multiple shape types
+//! through runtime polymorphism. Shapes are stored in a compact format using
+//! two vec4 fields, with the shape type encoded in the last component.
+//!
+//! Shape Type Encoding:
+//! - BALL (0): vec4(radius, _, _, type), vec4(_, _, _, _)
+//! - CUBOID (1): vec4(hx, hy, hz, type), vec4(_, _, _, _)
+//! - CAPSULE (2): vec4(ax, ay, az, type), vec4(bx, by, bz, radius)
+//! - CONE (3): vec4(half_height, radius, _, type), vec4(_, _, _, _) [3D only]
+//! - CYLINDER (4): vec4(half_height, radius, _, type), vec4(_, _, _, _) [3D only]
+//! - POLYLINE (5): Not yet implemented
+//! - TRIMESH (6): Not yet implemented
+
 #if DIM == 2
     #import wgebra::sim2 as Pose
 #else
@@ -13,6 +28,7 @@
 
 #define_import_path wgparry::shape
 
+/// Shape type constants for runtime type identification
 const SHAPE_TYPE_BALL: u32 = 0;
 const SHAPE_TYPE_CUBOID: u32 = 1;
 const SHAPE_TYPE_CAPSULE: u32 = 2;
@@ -21,10 +37,14 @@ const SHAPE_TYPE_CYLINDER: u32 = 4;
 const SHAPE_TYPE_POLYLINE: u32 = 5;
 const SHAPE_TYPE_TRIMESH: u32 = 6;
 
-// A generic shape. This is an enum that might contain any shape information.
-// PERF: if it wasn’t for the capsule, we could store all the shapes into a single vec4…
+/// A generic shape that can represent any concrete shape type.
+///
+/// This is a tagged union encoded in two vec4 values. The shape type
+/// is stored in the 'a.w' component as a bitcast u32.
 struct Shape {
+    /// First vec4 containing shape-specific data and type tag in 'w' component.
     a: vec4<f32>,
+    /// Second vec4 for additional shape data (primarily for capsule segment endpoint).
     b: vec4<f32>,
 }
 

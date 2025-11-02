@@ -1,3 +1,13 @@
+//! Cylinder Shape Module (3D only)
+//!
+//! This module provides geometric operations for cylinders.
+//! A cylinder is defined by its half-height and radius.
+//!
+//! The cylinder is oriented along the Y axis with:
+//! - Top at y = +half_height.
+//! - Bottom at y = -half_height.
+//! - Circular cross-section in the XZ plane.
+
 #if DIM == 2
     #import wgebra::sim2 as Pose
 #else
@@ -8,11 +18,14 @@
 
 #define_import_path wgparry::cylinder
 
-/// A cylinder, defined by its radius.
+/// A cylinder shape with circular cross-section (3D only).
+///
+/// The cylinder is aligned with the Y axis, extending from
+/// y = -half_height to y = +half_height.
 struct Cylinder {
-    /// The cylinder’s principal axis.
+    /// Half of the cylinder's height.
     half_height: f32,
-    /// The cylinder’s radius.
+    /// Radius of the circular cross-section.
     radius: f32,
 }
 
@@ -20,7 +33,6 @@ struct Cylinder {
 ///
 /// If the point is inside the cylinder, the point itself is returned.
 fn projectLocalPoint(cylinder: Cylinder, pt: Vector) -> Vector {
-
     // Project on the basis.
     let planar_dist_from_basis_center = length(pt.xz);
     let dir_from_basis_center = select(

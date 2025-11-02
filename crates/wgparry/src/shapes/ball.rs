@@ -1,7 +1,9 @@
-//! The ball shape.
+//! Ball shape - sphere (3D) or circle (2D).
+//!
+//! The ball is the simplest geometric primitive, defined by a single radius parameter.
+//! In 3D, this represents a sphere; in 2D, a circle.
 
-use crate::projection::WgProjection;
-use crate::ray::WgRay;
+use crate::queries::{WgProjection, WgRay};
 use crate::{dim_shader_defs, substitute_aliases};
 use wgcore::Shader;
 use wgebra::{WgSim2, WgSim3};
@@ -13,7 +15,14 @@ use wgebra::{WgSim2, WgSim3};
     src_fn = "substitute_aliases",
     shader_defs = "dim_shader_defs"
 )]
-/// Shader defining the ball shape as well as its ray-casting and point-projection functions.
+/// GPU shader for the ball (sphere/circle) shape.
+///
+/// This shader provides WGSL implementations for:
+/// - Ray-casting against balls
+/// - Point projection onto ball surfaces
+///
+/// The ball is defined by a single radius parameter and is centered at the origin
+/// in local space. Use transformations to position and scale balls in world space.
 pub struct WgBall;
 
 #[cfg(test)]
@@ -28,7 +37,7 @@ mod test {
     #[futures_test::test]
     #[serial_test::serial]
     async fn gpu_ball() {
-        crate::projection::test_utils::test_point_projection::<WgBall, _>(
+        crate::queries::test_utils::test_point_projection::<WgBall, _>(
             "Ball",
             Ball::new(0.5),
             |device, shapes, usages| GpuVector::init(device, shapes, usages).into_inner(),
