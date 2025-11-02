@@ -34,6 +34,17 @@ if ! command -v wasm-bindgen &> /dev/null; then
     cargo install wasm-bindgen-cli
 fi
 
+# Check if brotli is installed
+if ! command -v brotli &> /dev/null; then
+    echo "Warning: brotli not found. WASM files will not be compressed."
+    echo "To install brotli:"
+    echo "  macOS: brew install brotli"
+    echo "  Linux: apt-get install brotli or yum install brotli"
+    BROTLI_AVAILABLE=false
+else
+    BROTLI_AVAILABLE=true
+fi
+
 # Build the wasm binary
 echo "Building release binary..."
 cargo build --release --bin "$BINARY_NAME" --target wasm32-unknown-unknown
@@ -45,6 +56,24 @@ mkdir -p "$OUTPUT_DIR"
 echo "Generating web bindings..."
 wasm-bindgen --out-dir "$OUTPUT_DIR" --target web \
     "$TARGET_DIR/${BINARY_NAME}.wasm"
+
+# Compress WASM files with brotli
+if [ "$BROTLI_AVAILABLE" = true ]; then
+    echo "Compressing WASM files with brotli..."
+    for wasm_file in "$OUTPUT_DIR"/*.wasm; do
+        if [ -f "$wasm_file" ]; then
+            echo "  Compressing $(basename "$wasm_file")..."
+            original_size=$(wc -c < "$wasm_file")
+            brotli -f -q 11 -o "${wasm_file}.br" "$wasm_file"
+            compressed_size=$(wc -c < "${wasm_file}.br")
+            mv "${wasm_file}.br" "$wasm_file"
+            reduction=$(echo "scale=1; 100 - ($compressed_size * 100 / $original_size)" | bc)
+            echo "    Original: $(numfmt --to=iec-i --suffix=B $original_size)"
+            echo "    Compressed: $(numfmt --to=iec-i --suffix=B $compressed_size)"
+            echo "    Reduction: ${reduction}%"
+        fi
+    done
+fi
 
 # Create index.html
 echo "Creating index.html..."
