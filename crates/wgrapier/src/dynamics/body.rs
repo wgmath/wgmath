@@ -1,4 +1,8 @@
-//! Rigid-body definition and set.
+//! Rigid-body definitions, mass properties, velocities, and GPU storage.
+//!
+//! This module provides the core data structures for representing rigid bodies on the GPU,
+//! including their poses, velocities, forces, and mass properties. It also provides
+//! [`GpuBodySet`] for managing collections of rigid bodies in GPU memory.
 
 use encase::ShaderType;
 use num_traits::Zero;
@@ -12,10 +16,12 @@ use wgcore::tensor::GpuVector;
 use wgcore::Shader;
 use wgebra::{WgQuat, WgSim2, WgSim3};
 use wgparry::math::{AngVector, AngularInertia, GpuSim, Point, Vector};
-use wgparry::shape::{GpuShape, ShapeBuffers};
+use wgparry::shapes::{GpuShape, ShapeBuffers};
 use wgparry::{dim_shader_defs, substitute_aliases};
 use wgpu::{BufferUsages, Device};
 
+#[cfg(feature = "dim3")]
+use nalgebra::Vector4;
 #[cfg(feature = "dim3")]
 use wgebra::GpuSim3;
 
@@ -29,7 +35,7 @@ pub struct GpuForce {
     pub angular: AngVector<f32>,
 }
 
-#[derive(ShaderType, Copy, Clone, PartialEq, Default)]
+#[derive(ShaderType, Copy, Clone, PartialEq, Default, Debug)]
 #[repr(C)]
 /// Linear and angular velocities with a layout compatible with the corresponding WGSL struct.
 pub struct GpuVelocity {
@@ -42,48 +48,83 @@ pub struct GpuVelocity {
 #[derive(ShaderType, Copy, Clone, PartialEq)]
 #[repr(C)]
 /// Rigid-body mass-properties, with a layout compatible with the corresponding WGSL struct.
-pub struct GpuMassProperties {
-    /// The inverse angular inertia tensor.
-    pub inv_inertia: AngularInertia<f32>,
+pub struct GpuLocalMassProperties {
+    /// Square root of inverse principal inertia (scalar in 2D).
+    #[cfg(feature = "dim2")]
+    pub inv_principal_inertia_sqrt: f32,
+    #[cfg(feature = "dim3")]
+    inv_ref_frame: Vector4<f32>,
+    /// Square root of inverse principal inertia tensor (3D vector in 3D).
+    #[cfg(feature = "dim3")]
+    pub inv_principal_inertia_sqrt: nalgebra::Vector3<f32>,
     /// The inverse mass.
     pub inv_mass: Vector<f32>,
     /// The center-of-mass.
     pub com: Vector<f32>, // ShaderType isn’t implemented for Point
 }
 
-impl From<MassProperties> for GpuMassProperties {
+#[derive(ShaderType, Copy, Clone, PartialEq)]
+#[repr(C)]
+/// Rigid-body mass-properties, with a layout compatible with the corresponding WGSL struct.
+pub struct GpuWorldMassProperties {
+    /// The inverse angular inertia tensor.
+    pub inv_inertia_sqrt: AngularInertia<f32>,
+    /// The inverse mass.
+    pub inv_mass: Vector<f32>,
+    /// The center-of-mass.
+    pub com: Vector<f32>, // ShaderType isn’t implemented for Point
+}
+
+impl From<MassProperties> for GpuLocalMassProperties {
     fn from(props: MassProperties) -> Self {
-        GpuMassProperties {
+        GpuLocalMassProperties {
             #[cfg(feature = "dim2")]
-            inv_inertia: props.inv_principal_inertia_sqrt * props.inv_principal_inertia_sqrt,
+            inv_principal_inertia_sqrt: props.inv_principal_inertia.sqrt(),
             #[cfg(feature = "dim3")]
-            inv_inertia: props.reconstruct_inverse_inertia_matrix(),
+            inv_principal_inertia_sqrt: props.inv_principal_inertia.map(|e| e.sqrt()),
+            #[cfg(feature = "dim3")]
+            inv_ref_frame: props.principal_inertia_local_frame.coords,
             inv_mass: Vector::repeat(props.inv_mass),
             com: props.local_com.coords,
         }
     }
 }
 
-impl Default for GpuMassProperties {
+impl Default for GpuLocalMassProperties {
     fn default() -> Self {
-        GpuMassProperties {
+        GpuLocalMassProperties {
             #[rustfmt::skip]
             #[cfg(feature = "dim2")]
-            inv_inertia: 1.0,
+            inv_principal_inertia_sqrt: 1.0,
             #[cfg(feature = "dim3")]
-            inv_inertia: AngularInertia::identity(),
+            inv_ref_frame: Vector4::w(),
+            #[cfg(feature = "dim3")]
+            inv_principal_inertia_sqrt: Vector::repeat(1.0),
             inv_mass: Vector::repeat(1.0),
             com: Vector::zeros(),
         }
     }
 }
 
+impl Default for GpuWorldMassProperties {
+    fn default() -> Self {
+        GpuWorldMassProperties {
+            #[rustfmt::skip]
+            #[cfg(feature = "dim2")]
+            inv_inertia_sqrt: 1.0,
+            #[cfg(feature = "dim3")]
+            inv_inertia_sqrt: AngularInertia::identity(),
+            inv_mass: Vector::repeat(1.0),
+            com: Vector::zeros(),
+        }
+    }
+}
 /// A set of rigid-bodies stored on the gpu.
 pub struct GpuBodySet {
     len: u32,
     shapes_data: Vec<GpuShape>, // TODO: exists only for convenience in the MPM simulation.
-    pub(crate) mprops: GpuVector<GpuMassProperties>,
-    pub(crate) local_mprops: GpuVector<GpuMassProperties>,
+    pub(crate) mprops: GpuVector<GpuWorldMassProperties>,
+    pub(crate) local_mprops: GpuVector<GpuLocalMassProperties>,
     pub(crate) vels: GpuVector<GpuVelocity>,
     pub(crate) poses: GpuVector<GpuSim>,
     // TODO: support other shape types.
@@ -101,9 +142,9 @@ pub struct GpuBodySet {
 /// Helper struct for defining a rigid-body to be added to a [`GpuBodySet`].
 pub struct BodyDesc {
     /// The rigid-body’s mass-properties in local-space.
-    pub local_mprops: GpuMassProperties,
+    pub local_mprops: GpuLocalMassProperties,
     /// The rigid-body’s mass-properties in world-space.
-    pub mprops: GpuMassProperties,
+    pub mprops: GpuWorldMassProperties,
     /// The rigid-body’s linear and angular velocities.
     pub vel: GpuVelocity,
     /// The rigid-body’s world-space pose.
@@ -124,36 +165,59 @@ impl Default for BodyDesc {
     }
 }
 
+/// Coupling mode between a GPU body and the physics simulation.
+///
+/// This controls whether a body is affected by physics forces or acts as a kinematic body.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub enum BodyCoupling {
+    /// One-way coupling: the body affects other bodies but is not affected by them.
+    ///
+    /// This is useful for kinematic bodies that move independently of physics forces.
     OneWay,
+    /// Two-way coupling: the body both affects and is affected by other bodies.
+    ///
+    /// This is the standard mode for dynamic rigid bodies.
     #[default]
     TwoWays,
 }
 
+/// Associates a Rapier body/collider pair with a coupling mode.
+///
+/// Used when creating a [`GpuBodySet`] from Rapier data structures to specify
+/// which bodies should have two-way vs one-way coupling.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct BodyCouplingEntry {
+    /// The Rapier rigid body handle.
     pub body: RigidBodyHandle,
+    /// The Rapier collider handle.
     pub collider: ColliderHandle,
+    /// The coupling mode for this body.
     pub mode: BodyCoupling,
 }
 
 impl GpuBodySet {
-    /// Is this set empty?
+    /// Returns `true` if this set contains no rigid bodies.
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
-    /// Number of rigid-bodies in this set.
+    /// Returns the number of rigid bodies in this set.
     pub fn len(&self) -> u32 {
         self.len
     }
 
+    /// Creates a new GPU body set from Rapier rigid bodies and colliders.
+    ///
+    /// # Parameters
+    ///
+    /// - `device`: The WebGPU device for allocating GPU buffers.
+    /// - `bodies`: Rapier rigid body set.
+    /// - `colliders`: Rapier collider set.
     pub fn from_rapier(
         device: &Device,
         bodies: &RigidBodySet,
         colliders: &ColliderSet,
-        coupling: &[BodyCouplingEntry],
+        coupling: &[BodyCouplingEntry], // Only relevant to wgsparkl
     ) -> Self {
         let mut shape_buffers = ShapeBuffers::default();
         let mut gpu_bodies = vec![];
@@ -188,14 +252,7 @@ impl GpuBodySet {
                 } else {
                     zero_mprops.into()
                 },
-                mprops: if two_ways_coupling {
-                    rb.mass_properties()
-                        .local_mprops
-                        .transform_by(rb.position())
-                        .into()
-                } else {
-                    zero_mprops.into()
-                },
+                mprops: Default::default(),
             };
             gpu_bodies.push(desc);
         }
@@ -267,12 +324,12 @@ impl GpuBodySet {
     }
 
     /// GPU storage buffer containing the world-space mass-properties of every rigid-body.
-    pub fn mprops(&self) -> &GpuVector<GpuMassProperties> {
+    pub fn mprops(&self) -> &GpuVector<GpuWorldMassProperties> {
         &self.mprops
     }
 
     /// GPU storage buffer containing the local-space mass-properties of every rigid-body.
-    pub fn local_mprops(&self) -> &GpuVector<GpuMassProperties> {
+    pub fn local_mprops(&self) -> &GpuVector<GpuLocalMassProperties> {
         &self.local_mprops
     }
 
@@ -281,18 +338,30 @@ impl GpuBodySet {
         &self.shapes
     }
 
+    /// Returns the GPU buffer containing shape vertices in world-space.
+    ///
+    /// This buffer is updated each frame as bodies move.
     pub fn shapes_vertex_buffers(&self) -> &GpuVector<Point<f32>> {
         &self.shapes_vertex_buffers
     }
 
+    /// Returns the GPU buffer containing shape vertices in local-space.
+    ///
+    /// These are the original vertex positions before transformation.
     pub fn shapes_local_vertex_buffers(&self) -> &GpuVector<Point<f32>> {
         &self.shapes_local_vertex_buffers
     }
 
+    /// Returns the GPU buffer mapping each vertex to its collider ID.
+    ///
+    /// This is used by wgsparkl for particle-body interactions.
     pub fn shapes_vertex_collider_id(&self) -> &GpuVector<u32> {
         &self.shapes_vertex_collider_id
     }
 
+    /// Returns a CPU-side slice of the shape data.
+    ///
+    /// Useful for accessing shape information without GPU readback.
     pub fn shapes_data(&self) -> &[GpuShape] {
         &self.shapes_data
     }
