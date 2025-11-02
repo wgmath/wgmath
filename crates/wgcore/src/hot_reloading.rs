@@ -1,9 +1,12 @@
 //! Utility to detect changed files for shader hot-reloading.
 
 use async_channel::Receiver;
-use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{Event, EventKind};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+
+#[cfg(not(target_family = "wasm"))]
+use notify::Watcher;
 
 #[cfg(doc)]
 use crate::Shader;
@@ -11,7 +14,7 @@ use crate::Shader;
 /// State for tracking file changes.
 pub struct HotReloadState {
     #[cfg(not(target_family = "wasm"))]
-    watcher: RecommendedWatcher,
+    watcher: notify::RecommendedWatcher,
     rcv: Receiver<notify::Result<Event>>,
     file_changed: HashMap<PathBuf, bool>,
 }
@@ -23,14 +26,14 @@ impl HotReloadState {
     /// returned by this function.
     /// To register a file for change-tracking, call [`HotReloadState::watch_file`].
     pub fn new() -> notify::Result<Self> {
-        let (snd, rcv) = async_channel::unbounded();
+        let (_snd, _rcv) = async_channel::unbounded();
         Ok(Self {
             #[cfg(not(target_family = "wasm"))]
             watcher: notify::recommended_watcher(move |msg| {
                 // TODO: does hot-reloading make sense on wasm anyway?
-                let _ = snd.send_blocking(msg);
+                let _ = _snd.send_blocking(msg);
             })?,
-            rcv,
+            rcv: _rcv,
             file_changed: Default::default(),
         })
     }
@@ -58,12 +61,13 @@ impl HotReloadState {
     }
 
     /// Registers a files for change-tracking.
-    pub fn watch_file(&mut self, path: &Path) -> notify::Result<()> {
+    pub fn watch_file(&mut self, _path: &Path) -> notify::Result<()> {
         #[cfg(not(target_family = "wasm"))]
-        if !self.file_changed.contains_key(path) {
-            self.watcher.watch(path, RecursiveMode::NonRecursive)?;
+        if !self.file_changed.contains_key(_path) {
+            self.watcher
+                .watch(_path, notify::RecursiveMode::NonRecursive)?;
             // NOTE: this won’t insert if the watch failed.
-            self.file_changed.insert(path.to_path_buf(), false);
+            self.file_changed.insert(_path.to_path_buf(), false);
         }
 
         Ok(())

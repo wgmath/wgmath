@@ -60,7 +60,7 @@ impl GpuTimestamps {
     /// its execution times.
     ///
     /// Returns `None` if there is no room form two additional timestamps in `self`.
-    pub fn next_compute_pass_timestamp_writes(&mut self) -> Option<ComputePassTimestampWrites> {
+    pub fn next_compute_pass_timestamp_writes(&mut self) -> Option<ComputePassTimestampWrites<'_>> {
         let ids = self.next_query_indices::<2>()?;
         Some(wgpu::ComputePassTimestampWrites {
             query_set: &self.set,
@@ -143,13 +143,25 @@ impl GpuTimestamps {
     /// into actual time measurements they need be multiplied by `Queue::get_timestamp_period`. See
     /// [`GpuTimestamps::wait_for_results_ms_async`] for a method that applies that multiplication
     /// automatically.
-    pub async fn wait_for_results_async(&self) -> Result<Vec<u64>, BufferAsyncError> {
+    pub async fn wait_for_results_async(
+        &self,
+        _device: &Device,
+    ) -> Result<Vec<u64>, BufferAsyncError> {
         let (snd, rcv) = async_channel::bounded(1);
         self.destination_buffer
             .slice(..)
             .map_async(wgpu::MapMode::Read, move |r| {
-                let _ = snd.force_send(r).unwrap();
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    snd.send_blocking(r).unwrap();
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    let _ = snd.force_send(r).unwrap();
+                }
             });
+        #[cfg(not(target_arch = "wasm32"))]
+        let _ = _device.poll(wgpu::PollType::wait());
         rcv.recv().await.unwrap()?;
 
         let timestamps = {
@@ -176,8 +188,9 @@ impl GpuTimestamps {
     pub async fn wait_for_results_ms_async(
         &self,
         queue: &Queue,
+        device: &Device,
     ) -> Result<Vec<f64>, BufferAsyncError> {
-        let timestamps = self.wait_for_results_async().await?;
+        let timestamps = self.wait_for_results_async(device).await?;
         let period = queue.get_timestamp_period();
         Ok(Self::timestamps_to_ms(&timestamps, period))
     }
@@ -189,7 +202,7 @@ impl GpuTimestamps {
         self.destination_buffer
             .slice(..)
             .map_async(wgpu::MapMode::Read, |_| ());
-        device.poll(wgpu::Maintain::wait()).panic_on_timeout();
+        let _ = device.poll(wgpu::PollType::wait());
 
         let timestamps = {
             let timestamp_view = self
