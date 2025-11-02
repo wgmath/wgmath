@@ -2,22 +2,24 @@
 members = [
     "crates/wgcore", "crates/wgebra",
     "crates/wgparry/crates/wgparry2d", "crates/wgparry/crates/wgparry3d",
-    "crates/wgrapier/crates/wgrapier2d", "crates/wgrapier/crates/wgrapier3d"
+    "crates/wgrapier/crates/wgrapier2d", "crates/wgrapier/crates/wgrapier3d",
+    "crates/wgrapier/crates/wgrapier_testbed2d", "crates/wgrapier/crates/wgrapier_testbed3d",
+    "crates/wgrapier/crates/examples2d", "crates/wgrapier/crates/examples3d",
 ]
 resolver = "2"
 
 [workspace.dependencies]
-nalgebra = { version = "0.33.1", features = ["convert-bytemuck"] }
-parry2d = { version = "0.18", features = ["bytemuck", "encase"] }
-parry3d = { version = "0.18", features = ["bytemuck", "encase"] }
-wgpu = { version = "24", features = ["naga-ir"] }
+nalgebra = { version = "0.34", features = ["convert-bytemuck", "encase"] }
+parry2d = { version = "0.25.2", features = ["bytemuck", "encase"] }
+parry3d = { version = "0.25.2", features = ["bytemuck", "encase"] }
+wgpu = { version = "26", features = ["naga-ir"] }
 bytemuck = { version = "1", features = ["derive", "extern_crate_std"] }
 anyhow = "1"
 async-channel = "2"
-naga_oil = "0.17"
+naga_oil = "0.19"
 thiserror = "1"
 
-encase = { version = "0.10.0", features = ["nalgebra"] }
+encase = "0.12"
 
 [workspace.lints]
 rust.unexpected_cfgs = { level = "warn", check-cfg = [
@@ -25,9 +27,12 @@ rust.unexpected_cfgs = { level = "warn", check-cfg = [
 ] }
 
 [profile.release]
-opt-level = 'z'
+
 
 [patch.crates-io]
-parry3d = { git = "https://github.com/dimforge/parry", branch = "encase" }
-parry2d = { git = "https://github.com/dimforge/parry", branch = "encase" }
-encase = { git = "https://github.com/sebcrozet/encase", branch = "nalgebra-points" }
+#parry3d = { git = "https://github.com/dimforge/parry", branch = "encase" }
+#parry2d = { git = "https://github.com/dimforge/parry", branch = "encase" }
+#encase = { git = "https://github.com/sebcrozet/encase", branch = "nalgebra-points2" }
+#kiss3d = { path = "../kiss3d" }
+#parry3d = { path = "../parry/crates/parry3d" }
+#parry2d = { path = "../parry/crates/parry2d" }
