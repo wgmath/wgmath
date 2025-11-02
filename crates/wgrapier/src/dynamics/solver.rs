@@ -79,8 +79,8 @@ pub struct WgSolver {
 /// Arguments for constraint solver dispatch.
 ///
 /// This structure bundles all the GPU buffers and parameters needed for running
-/// the constraint solver. It's used by both the [`WgSolver::solve_tgs`] and
-/// [`WgSolver::solve_pgs`] methods.
+/// the constraint solver. It's used by both the [`WgSolver::prepare`] and
+/// [`WgSolver::solve_tgs`] methods.
 #[derive(Copy, Clone)]
 pub struct SolverArgs<'a> {
     /// Total number of colliders in the simulation.
