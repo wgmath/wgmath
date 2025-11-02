@@ -38,11 +38,11 @@ fn init_one() -> f32 {
 }
 
 fn init_max_f32() -> f32 {
-    return 3.40282347E+38;
+    return 3.4e38; // TODO: the exact value isn’t accepted on the web: 3.40282347E+38;
 }
 
 fn init_min_f32() -> f32 {
-    return -3.40282347E+38;
+    return -3.4e38; // TODO: the exact value isn’t accepted on the web: 3.40282347E+38;
 }
 
 fn init_placeholder() -> f32 {

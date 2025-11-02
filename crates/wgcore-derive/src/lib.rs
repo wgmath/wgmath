@@ -20,6 +20,12 @@ struct DeriveShadersArgs {
     pub src_fn: Option<Path>,
     #[darling(default)]
     pub shader_defs: Option<Path>,
+    #[darling(default = "default_crate_path")]
+    pub krate: Path,
+}
+
+fn default_crate_path() -> Path {
+    syn::parse_quote!(wgcore)
 }
 
 #[derive(FromField, Clone)]
@@ -59,24 +65,26 @@ pub fn derive_shader(item: TokenStream) -> TokenStream {
                 let ident = field.ident.as_ref().expect("unnamed fields not supported").into_token_stream();
                 let kernel_name = field_args.kernel.map(|k| quote! { #k }).unwrap_or_else(|| quote! { stringify!(#ident) });
 
+                let krate = &derive_shaders.krate;
                 if fields.len() == 1 {
-                    // Don’t clone the module if there is only one field.
+                    // Don't clone the module if there is only one field.
                     kernels_to_build.push(quote! {
-                        #ident: wgcore::utils::load_module(device, #kernel_name, module),
+                        #ident: #krate::utils::load_module(device, #kernel_name, module),
                     });
                 } else {
                     kernels_to_build.push(quote! {
-                        #ident: wgcore::utils::load_module(device, #kernel_name, module.clone()),
+                        #ident: #krate::utils::load_module(device, #kernel_name, module.clone()),
                     });
                 }
             }
 
+            let krate = &derive_shaders.krate;
             let shader_defs = derive_shaders.shader_defs.map(|defs| quote! { #defs() })
                 .unwrap_or_else(|| quote! { Default::default() });
             let raw_src = quote! {
                 // First try to find a path from the shader registry.
-                // If doesn’t exist in the registry, try the absolute path.
-                // If it doesn’t exist in the absolute path, load the embedded string.
+                // If doesn't exist in the registry, try the absolute path.
+                // If it doesn't exist in the absolute path, load the embedded string.
                 if let Some(path) = Self::wgsl_path() {
                     // TODO: handle error
                     std::fs::read_to_string(path).unwrap()
@@ -89,7 +97,7 @@ pub fn derive_shader(item: TokenStream) -> TokenStream {
                 .unwrap_or_else(|| quote! { #raw_src });
             let naga_module = quote! {
                 Self::composer().and_then(|mut c|
-                    c.make_naga_module(wgcore::re_exports::naga_oil::compose::NagaModuleDescriptor {
+                    c.make_naga_module(#krate::re_exports::naga_oil::compose::NagaModuleDescriptor {
                         source: &Self::src(),
                         file_path: Self::FILE_PATH,
                         shader_defs: #shader_defs,
@@ -124,10 +132,10 @@ pub fn derive_shader(item: TokenStream) -> TokenStream {
             let composable = derive_shaders.composable.unwrap_or(true);
             quote! {
                 #[automatically_derived]
-                impl wgcore::shader::Shader for #struct_identifier {
+                impl #krate::shader::Shader for #struct_identifier {
                     const FILE_PATH: &'static str = #src_path;
 
-                    fn from_device(device: &wgcore::re_exports::Device) -> Result<Self, wgcore::re_exports::ComposerError> {
+                    fn from_device(device: &#krate::re_exports::Device) -> Result<Self, #krate::re_exports::ComposerError> {
                         #from_device
                     }
 
@@ -135,16 +143,16 @@ pub fn derive_shader(item: TokenStream) -> TokenStream {
                         #src
                     }
 
-                    fn naga_module() -> Result<wgcore::re_exports::wgpu::naga::Module, wgcore::re_exports::ComposerError> {
+                    fn naga_module() -> Result<#krate::re_exports::wgpu::naga::Module, #krate::re_exports::ComposerError> {
                         #naga_module
                     }
 
                     fn wgsl_path() -> Option<std::path::PathBuf> {
-                        if let Some(path) = wgcore::ShaderRegistry::get().get_path::<#struct_identifier>() {
+                        if let Some(path) = #krate::ShaderRegistry::get().get_path::<#struct_identifier>() {
                             Some(path.clone())
                         } else {
-                            // NOTE: this is a bit fragile, and won’t work if the current working directory
-                            //       isn’t the root of the workspace the binary crate is being run from.
+                            // NOTE: this is a bit fragile, and won't work if the current working directory
+                            //       isn't the root of the workspace the binary crate is being run from.
                             //       Ideally we need `proc_macro2::Span::source_file` but it is currently unstable.
                             //       See: https://users.rust-lang.org/t/how-to-get-the-macro-called-file-path-in-a-rust-procedural-macro/109613/5
                             std::path::Path::new(file!())
@@ -154,15 +162,15 @@ pub fn derive_shader(item: TokenStream) -> TokenStream {
                         }
                     }
 
-                    fn compose(composer: &mut wgcore::re_exports::Composer) -> Result<(), wgcore::re_exports::ComposerError> {
-                        use wgcore::composer::ComposerExt;
+                    fn compose(composer: &mut #krate::re_exports::Composer) -> Result<(), #krate::re_exports::ComposerError> {
+                        use #krate::composer::ComposerExt;
                         #(
                             #to_derive::compose(composer)?;
                         )*
 
                         if #composable {
                             composer
-                                .add_composable_module_once(wgcore::re_exports::ComposableModuleDescriptor {
+                                .add_composable_module_once(#krate::re_exports::ComposableModuleDescriptor {
                                     source: &Self::src(),
                                     file_path: Self::FILE_PATH,
                                     shader_defs: #shader_defs,
@@ -176,7 +184,7 @@ pub fn derive_shader(item: TokenStream) -> TokenStream {
                     /*
                      * Hot reloading.
                      */
-                    fn watch_sources(state: &mut wgcore::hot_reloading::HotReloadState) -> wgcore::re_exports::notify::Result<()> {
+                    fn watch_sources(state: &mut #krate::hot_reloading::HotReloadState) -> #krate::re_exports::notify::Result<()> {
                         #(
                             #to_derive::watch_sources(state)?;
                         )*
@@ -188,7 +196,7 @@ pub fn derive_shader(item: TokenStream) -> TokenStream {
                         Ok(())
                     }
 
-                    fn needs_reload(state: &wgcore::hot_reloading::HotReloadState) -> bool {
+                    fn needs_reload(state: &#krate::hot_reloading::HotReloadState) -> bool {
                         #(
                             if #to_derive::needs_reload(state) {
                                 return true;

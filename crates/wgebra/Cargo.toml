@@ -1,6 +1,6 @@
 [package]
 name = "wgebra"
-authors = ["Sébastien Crozet <sebcrozet@dimforge.com>"]
+authors = ["Sébastien Crozet <developer@crozet.re>"]
 description = "Composable WGSL shaders for linear algebra."
 homepage = "https://wgmath.rs"
 repository = "https://github.com/dimforge/wgmath"
@@ -13,12 +13,12 @@ wgpu = { workspace = true }
 bytemuck = { workspace = true }
 naga_oil = { workspace = true }
 nalgebra = { workspace = true }
-encase = { workspace = true, features = ["nalgebra"] }
+encase = { workspace = true }
 
 wgcore = { version = "0.2", path = "../wgcore", features = ["derive"] }
 
 [dev-dependencies]
-nalgebra = { version = "0.33", features = ["rand"] }
+nalgebra = { version = "0.34", features = ["rand"] }
 futures-test = "0.3"
 serial_test = "3"
 approx = "0.5"

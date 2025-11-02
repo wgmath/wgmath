@@ -24,6 +24,12 @@ fn mul(lhs: Sim2, rhs: Sim2) -> Sim2 {
     return Sim2(rotation, translation, lhs.scale * rhs.scale);
 }
 
+/// Computes `inv(lhs) * rhs`.
+fn invMul(lhs: Sim2, rhs: Sim2) -> Sim2 {
+    // TODO: optimize?
+    return mul(inv(lhs), rhs);
+}
+
 /// Inverts a similarity.
 fn inv(sim: Sim2) -> Sim2 {
     let scale = 1.0f / sim.scale;
@@ -40,6 +46,11 @@ fn mulPt(sim: Sim2, pt: vec2<f32>) -> vec2<f32> {
 /// Multiplies the inverse of a similarity and a point (inv-translates, inv-rotates, then inv-scales the point).
 fn invMulPt(sim: Sim2, pt: vec2<f32>) -> vec2<f32> {
     return Rot::invMulVec(sim.rotation, (pt - sim.translation)) / sim.scale;
+}
+
+/// Multiplies a similarity and a unit vector (rotates the vector; the translation and scale are ignored).
+fn mulUnitVec(sim: Sim2, vec: vec2<f32>) -> vec2<f32> {
+    return Rot::mulVec(sim.rotation, vec);
 }
 
 /// Multiplies a similarity and a vector (scales and rotates the vector; the translation is ignored).
