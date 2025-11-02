@@ -551,30 +551,27 @@ fn init_indirect_args() {
 }
 
 #if DIM == 2
-// TODO: in 2D we could allocate 16 bits per dimension instead of 10.
-
-// Expands a 10-bit integer into 30 bits
-// by inserting 2 zeros after each bit.
+// Expands a 16-bit integer into 32 bits
+// by inserting 1 zero after each bit.
 fn expandBits(v: u32) -> u32
 {
-    var vv = (v * 0x00010001u) & 0xFF0000FFu;
-    vv = (vv * 0x00000101u) & 0x0F00F00Fu;
-    vv = (vv * 0x00000011u) & 0xC30C30C3u;
-    vv = (vv * 0x00000005u) & 0x49249249u;
-    return vv;
+    var x = v & 0x0000ffffu;
+    x = (x | (x << 8)) & 0x00ff00ffu;
+    x = (x | (x << 4)) & 0x0f0f0f0fu;
+    x = (x | (x << 2)) & 0x33333333u;
+    x = (x | (x << 1)) & 0x55555555u;
+    return x;
 }
 
-// Calculates a 20-bit Morton code for the
-// given 2D point located within the unit cube [0,1].
-// TODO: this was ported 1-1 form the 3D version. We should adjust it
-//       so it uses 32 bits (16 + 16) in 2D.
+// Calculates a 32-bit Morton code for the
+// given 2D point located within the unit square [0,1].
 fn morton(v: vec2<f32>) -> u32
 {
-    let scaled_x = min(max(v.x * 1024.0f, 0.0f), 1023.0f);
-    let scaled_y = min(max(v.y * 1024.0f, 0.0f), 1023.0f);
+    let scaled_x = clamp(v.x * 65536.0f, 0.0f, 65535.0f);
+    let scaled_y = clamp(v.y * 65536.0f, 0.0f, 65535.0f);
     let xx = expandBits(u32(scaled_x));
     let yy = expandBits(u32(scaled_y));
-    return xx * 4 + yy * 2;
+    return xx | (yy << 1);
 }
 #else
 // Expands a 10-bit integer into 30 bits

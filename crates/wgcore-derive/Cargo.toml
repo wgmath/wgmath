@@ -1,6 +1,6 @@
 [package]
 name = "wgcore-derive"
-authors = ["Sébastien Crozet <sebcrozet@dimforge.com>"]
+authors = ["Sébastien Crozet <developer@crozet.re>"]
 description = "Proc-macro for composable WGSL shaders."
 homepage = "https://wgmath.rs"
 repository = "https://github.com/dimforge/wgmath"

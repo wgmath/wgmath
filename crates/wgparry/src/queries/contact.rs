@@ -125,4 +125,4 @@ pub struct WgContact;
 /// This shader is a dependency for [`WgContact`] and other contact-related shaders.
 pub struct WgContactManifold;
 
-wgcore::test_shader_compilation!(WgContact);
+wgcore::test_shader_compilation!(WgContact, wgcore, crate::dim_shader_defs());

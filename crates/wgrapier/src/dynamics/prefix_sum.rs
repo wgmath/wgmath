@@ -266,7 +266,6 @@ mod test {
             let mut pass = encoder.compute_pass("test", None);
             prefix_sum.dispatch(gpu.device(), &mut pass, &mut workspace, &v_gpu);
             drop(pass);
-            queue.encode(&mut encoder, None);
             staging.copy_from(&mut encoder, &v_gpu);
 
             let t0 = web_time::Instant::now();

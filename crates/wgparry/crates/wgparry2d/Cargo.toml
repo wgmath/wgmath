@@ -1,6 +1,6 @@
 [package]
 name = "wgparry2d"
-authors = ["Sébastien Crozet <sebcrozet@dimforge.com>"]
+authors = ["Sébastien Crozet <developer@crozet.re>"]
 description = "Cross-platform 2D GPU collision detection and geometry."
 homepage = "https://wgmath.rs"
 repository = "https://github.com/dimforge/wgmath"
@@ -30,11 +30,12 @@ bytemuck = { workspace = true }
 encase = { workspace = true }
 parry2d = { workspace = true }
 
-wgcore = { version = "0.2", path = "../../../wgcore" }
+wgcore = { version = "0.2", path = "../../../wgcore", features = ["derive"] }
 wgebra = { version = "0.2", path = "../../../wgebra" }
 
 [dev-dependencies]
-nalgebra = { version = "0.33", features = ["rand"] }
+nalgebra = { version = "0.34", features = ["rand"] }
 futures-test = "0.3"
 serial_test = "3"
 approx = "0.5"
+rand = "0.9"

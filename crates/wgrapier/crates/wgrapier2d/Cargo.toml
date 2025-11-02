@@ -1,6 +1,6 @@
 [package]
 name = "wgrapier2d"
-authors = ["Sébastien Crozet <sebcrozet@dimforge.com>"]
+authors = ["Sébastien Crozet <developer@crozet.re>"]
 description = "Cross-platform 2D rigid-body physics."
 homepage = "https://wgmath.rs"
 repository = "https://github.com/dimforge/wgmath"
@@ -29,17 +29,16 @@ naga_oil = { workspace = true }
 bytemuck = { workspace = true }
 encase = { workspace = true }
 
-wgcore = { version = "0.2", path = "../../../wgcore" }
+wgcore = { version = "0.2", path = "../../../wgcore", features = ["derive"] }
 wgebra = { version = "0.2", path = "../../../wgebra" }
 wgparry2d = { version = "0.2", path = "../../../wgparry/crates/wgparry2d" }
-rapier2d = "0.23" # TODO: should be behind a feature?
+rapier2d = "0.30" # TODO: should be behind a feature?
 num-traits = "0.2"
+web-time = "1"
 
 [dev-dependencies]
-nalgebra = { version = "0.33", features = ["rand"] }
+nalgebra = { version = "0.34", features = ["rand", "glam029"] }
 futures-test = "0.3"
 serial_test = "3"
 approx = "0.5"
-async-std = { version = "1", features = ["attributes"] }
-#bevy = { version = "0.14", features = ["shader_format_glsl", "shader_format_spirv"], }
-#bevy_panorbit_camera = "0.19.1"
+kiss3d = "0.37.1"

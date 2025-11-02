@@ -12,7 +12,7 @@
 //! - **Fast to compute**: For most shapes, AABB computation is very efficient.
 
 use crate::shapes::WgShape;
-use crate::substitute_aliases;
+use crate::{dim_shader_defs, substitute_aliases};
 use wgcore::{test_shader_compilation, Shader};
 use wgebra::{WgSim2, WgSim3};
 
@@ -20,7 +20,8 @@ use wgebra::{WgSim2, WgSim3};
 #[shader(
     derive(WgSim3, WgSim2, WgShape),
     src = "./aabb.wgsl",
-    src_fn = "substitute_aliases"
+    src_fn = "substitute_aliases",
+    shader_defs = "dim_shader_defs"
 )]
 /// GPU shader for computing and manipulating Axis-Aligned Bounding Boxes.
 ///
@@ -30,4 +31,4 @@ use wgebra::{WgSim2, WgSim3};
 /// - AABB merging and manipulation.
 pub struct WgAabb;
 
-test_shader_compilation!(WgAabb);
+test_shader_compilation!(WgAabb, wgcore, crate::dim_shader_defs());

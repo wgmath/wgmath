@@ -1,6 +1,6 @@
 [package]
 name = "wgcore"
-authors = ["Sébastien Crozet <sebcrozet@dimforge.com>"]
+authors = ["Sébastien Crozet <developer@crozet.re>"]
 description = "Utilities and abstractions for composable WGSL shaders."
 homepage = "https://wgmath.rs"
 repository = "https://github.com/dimforge/wgmath"
@@ -30,7 +30,7 @@ notify = { version = "7" } # , optional = true }
 paste = "1"
 
 [dev-dependencies]
-nalgebra = { version = "0.33", features = ["rand"] }
+nalgebra = { version = "0.34", features = ["rand"] }
 futures-test = "0.3"
 serial_test = "3"
 approx = "0.5"

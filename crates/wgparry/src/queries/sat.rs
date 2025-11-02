@@ -24,4 +24,4 @@ use wgebra::{WgSim2, WgSim3};
 /// overlap by testing separating planes.
 pub struct WgSat;
 
-wgcore::test_shader_compilation!(WgSat);
+wgcore::test_shader_compilation!(WgSat, wgcore, crate::dim_shader_defs());

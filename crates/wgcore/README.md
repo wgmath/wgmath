@@ -79,7 +79,7 @@ The `Shader` proc-macro allows some customizations of the imported shaders:
     derive(MyShader1, MyShader2),
     src = "kernel.wgsl",
     src_fn = "substitute_aliases",
-    shader_defs = "dim_shader_defs"
+    shader_defs = "dim_shader_defs",
     composable = false
 )]
 struct MyKernel {

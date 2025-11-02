@@ -1,0 +1,45 @@
+[package]
+name = "wgrapier_testbed3d"
+authors = ["Sébastien Crozet <developer@crozet.re>"]
+description = "Cross-platform 3D rigid-body physics."
+homepage = "https://wgmath.rs"
+repository = "https://github.com/dimforge/wgmath"
+version = "0.2.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[lib]
+name = "wgrapier_testbed3d"
+path = "../../src_testbed/lib.rs"
+required-features = ["dim3"]
+
+[lints]
+rust.unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(feature, values("dim2"))',
+] }
+
+[features]
+default = ["dim3"]
+dim3 = []
+
+[dependencies]
+nalgebra = { workspace = true }
+wgpu = { workspace = true }
+naga_oil = { workspace = true }
+bytemuck = { workspace = true }
+encase = { workspace = true }
+
+wgcore = { version = "0.2", path = "../../../wgcore", features = ["derive"] }
+wgebra = { version = "0.2", path = "../../../wgebra" }
+wgparry3d = { version = "0.2", path = "../../../wgparry/crates/wgparry3d" }
+wgrapier3d = { version = "0.2", path = "../wgrapier3d" }
+rapier3d = { version = "0.30", features = ["simd-stable"] }
+num-traits = "0.2"
+kiss3d = { version = "0.37.1", features = ["egui"] }
+web-time = "1"
+
+[dev-dependencies]
+nalgebra = { version = "0.34", features = ["rand", "glam029"] }
+futures-test = "0.3"
+serial_test = "3"
+approx = "0.5"

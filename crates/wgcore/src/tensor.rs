@@ -1,6 +1,7 @@
 //! Utilities for initializing and slicing tensors, matrices, vectors, and scalars gpu storage
 //! buffers.
 
+use crate::gpu::GpuInstance;
 use crate::shapes::ViewShape;
 use bytemuck::Pod;
 use encase::internal::{CreateFrom, ReadFrom, WriteInto};
@@ -278,14 +279,14 @@ impl<T, const DIM: usize> GpuTensor<T, DIM> {
     }
 
     /// Builds a tensor view sharing the same shape, stride, and buffer, as `self`.
-    pub fn as_view<Ordering: MatrixOrdering>(&self) -> GpuTensorView<T, Ordering, DIM> {
+    pub fn as_view<Ordering: MatrixOrdering>(&self) -> GpuTensorView<'_, T, Ordering, DIM> {
         self.into()
     }
 
     // TODO: not sure if there is an official name for this operation.
     pub fn as_embedded_view<Ordering: MatrixOrdering, const DIM2: usize>(
         &self,
-    ) -> GpuTensorView<T, Ordering, DIM2> {
+    ) -> GpuTensorView<'_, T, Ordering, DIM2> {
         assert!(
             DIM2 >= DIM,
             "Can only embed into a higher-order tensor view."
@@ -306,7 +307,7 @@ impl<T, const DIM: usize> GpuTensor<T, DIM> {
             buffer_slice.map_async(wgpu::MapMode::Read, move |v| {
                 sender.send_blocking(v).unwrap()
             });
-            device.poll(wgpu::Maintain::wait()).panic_on_timeout();
+            let _ = device.poll(wgpu::PollType::wait());
             receiver.recv().await?.unwrap();
         }
         #[cfg(target_arch = "wasm32")]
@@ -315,7 +316,7 @@ impl<T, const DIM: usize> GpuTensor<T, DIM> {
             buffer_slice.map_async(wgpu::MapMode::Read, move |v| {
                 let _ = sender.force_send(v).unwrap();
             });
-            device.poll(wgpu::Maintain::wait()).panic_on_timeout();
+            device.poll(wgpu::PollType::wait())?;
             receiver.recv().await?.unwrap();
         }
 
@@ -334,6 +335,40 @@ impl<T, const DIM: usize> GpuTensor<T, DIM> {
         drop(data);
         self.buffer.unmap();
         Ok(())
+    }
+
+    pub async fn slow_read(&self, gpu: &GpuInstance) -> Vec<T>
+    where
+        T: Pod,
+    {
+        // Create staging buffer and copy into it.
+        let staging: GpuTensor<T, DIM> = TensorBuilder::tensor(
+            self.shape(),
+            BufferUsages::MAP_READ | BufferUsages::COPY_DST,
+        )
+        .build(gpu.device());
+
+        let mut encoder = gpu.device().create_command_encoder(&Default::default());
+        staging.copy_from(&mut encoder, self);
+        gpu.queue().submit(Some(encoder.finish()));
+        staging.read(gpu.device()).await.unwrap()
+    }
+
+    pub async fn slow_read_encased(&self, gpu: &GpuInstance) -> Vec<T>
+    where
+        T: ShaderType + ReadFrom + ShaderSize + CreateFrom,
+    {
+        // Create staging buffer and copy into it.
+        let staging: GpuTensor<T, DIM> = TensorBuilder::tensor(
+            self.shape(),
+            BufferUsages::MAP_READ | BufferUsages::COPY_DST,
+        )
+        .build_uninit_encased(gpu.device());
+
+        let mut encoder = gpu.device().create_command_encoder(&Default::default());
+        staging.copy_from_encased(&mut encoder, self);
+        gpu.queue().submit(Some(encoder.finish()));
+        staging.read_encased(gpu.device()).await.unwrap()
     }
 
     /// Reads the buffer’s content into a vector.
@@ -481,7 +516,7 @@ impl<T, const DIM: usize> GpuTensor<T, DIM> {
         shape: [u32; DIM2],
         stride: Option<u32>,
         stride_mat: Option<u32>,
-    ) -> GpuTensorView<T, Ordering, DIM2> {
+    ) -> GpuTensorView<'_, T, Ordering, DIM2> {
         assert!(shape.iter().product::<u32>() <= self.shape.iter().product::<u32>());
 
         let mut size = [1; 3];
@@ -536,7 +571,7 @@ impl<T> GpuMatrix<T> {
     }
 
     /// Takes a view over the `i`-th column of `self`.
-    pub fn column(&self, i: u32) -> GpuVectorView<T> {
+    pub fn column(&self, i: u32) -> GpuVectorView<'_, T> {
         GpuTensorView {
             view_shape: ViewShape {
                 size: [self.shape[0], 1, 1],
@@ -549,7 +584,7 @@ impl<T> GpuMatrix<T> {
         }
     }
 
-    pub fn slice(&self, (i, j): (u32, u32), (nrows, ncols): (u32, u32)) -> GpuMatrixView<T> {
+    pub fn slice(&self, (i, j): (u32, u32), (nrows, ncols): (u32, u32)) -> GpuMatrixView<'_, T> {
         GpuTensorView {
             view_shape: ViewShape {
                 size: [nrows, ncols, 1],
@@ -562,7 +597,7 @@ impl<T> GpuMatrix<T> {
         }
     }
 
-    pub fn columns(&self, first_col: u32, ncols: u32) -> GpuMatrixView<T> {
+    pub fn columns(&self, first_col: u32, ncols: u32) -> GpuMatrixView<'_, T> {
         let nrows = self.shape[0];
         GpuTensorView {
             view_shape: ViewShape {
@@ -576,7 +611,7 @@ impl<T> GpuMatrix<T> {
         }
     }
 
-    pub fn rows(&self, first_row: u32, nrows: u32) -> GpuMatrixView<T> {
+    pub fn rows(&self, first_row: u32, nrows: u32) -> GpuMatrixView<'_, T> {
         let ncols = self.shape[1];
         GpuTensorView {
             view_shape: ViewShape {
@@ -631,7 +666,7 @@ impl<T> GpuVector<T> {
     }
 
     /// Takes a view, over this vector, with `num_rows` rows starting at row `first_row`.
-    pub fn rows(&self, first_row: u32, num_rows: u32) -> GpuVectorView<T> {
+    pub fn rows(&self, first_row: u32, num_rows: u32) -> GpuVectorView<'_, T> {
         GpuTensorView {
             view_shape: ViewShape {
                 size: [num_rows, 1, 1],

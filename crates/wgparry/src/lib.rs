@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
-// #![warn(missing_docs)]
+#![warn(missing_docs)]
+#![allow(clippy::result_large_err)]
+#![allow(clippy::too_many_arguments)]
 
 pub extern crate nalgebra as na;
 #[cfg(feature = "dim2")]
@@ -10,36 +12,88 @@ pub extern crate parry3d as parry;
 use naga_oil::compose::ShaderDefValue;
 use std::collections::HashMap;
 
-pub mod ball;
-pub mod capsule;
-pub mod cuboid;
-pub mod projection;
-mod ray;
-pub mod segment;
-pub mod triangle;
-// mod contact;
+/// Bounding volume data structures and GPU shaders for collision detection acceleration.
+pub mod bounding_volumes;
+/// Broad-phase collision detection algorithms implemented on the GPU.
+///
+/// Includes brute-force and LBVH (Linear Bounding Volume Hierarchy) implementations.
+pub mod broad_phase;
+/// Geometric query operations like ray-casting, point projection, and contact generation.
+pub mod queries;
+/// Geometric shape definitions and their GPU shader implementations.
+pub mod shapes;
+/// Utility functions and data structures, including GPU radix sort.
+pub mod utils;
 
-#[cfg(feature = "dim3")]
-pub mod cone;
-#[cfg(feature = "dim3")]
-pub mod cylinder;
-pub mod shape;
-
-/// Shader definitions that depend on whether we are building the 2D or 3D version of this crate.
+/// Returns shader definitions that depend on whether we are building the 2D or 3D version of this crate.
+///
+/// This function generates WGSL shader preprocessor definitions that allow shaders to adapt
+/// based on dimensionality (2D vs 3D) and target platform (native vs WASM).
+///
+/// # Returns
+///
+/// A [`HashMap`] containing:
+/// - `"DIM"`: Set to `2` for 2D builds (when `feature = "dim2"`) or `3` for 3D builds (when `feature = "dim3"`)
+/// - `"NATIVE"`: Set to `1` for native targets or `0` for WASM targets
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let shader_defs = dim_shader_defs();
+/// // On a 3D native build: {"DIM": 3, "NATIVE": 1}
+/// // On a 2D WASM build: {"DIM": 2, "NATIVE": 0}
+/// ```
 pub fn dim_shader_defs() -> HashMap<String, ShaderDefValue> {
+    let mut defs = HashMap::new();
     if cfg!(feature = "dim2") {
-        [("DIM".to_string(), ShaderDefValue::UInt(2))].into()
+        defs.insert("DIM".to_string(), ShaderDefValue::UInt(2));
     } else {
-        [("DIM".to_string(), ShaderDefValue::UInt(3))].into()
+        defs.insert("DIM".to_string(), ShaderDefValue::UInt(3));
     }
+
+    if cfg!(target_arch = "wasm32") {
+        defs.insert("NATIVE".to_string(), ShaderDefValue::UInt(0));
+    } else {
+        defs.insert("NATIVE".to_string(), ShaderDefValue::UInt(1));
+    }
+
+    defs
 }
 
-/// Naga-oil doesn’t support aliases very well so this function
-/// substitutes the aliases with their corresponding types directly.
+/// Substitutes type aliases in WGSL shader source code with their concrete dimension-specific types.
 ///
-/// Substituted aliases include:
-/// - `Transform = Pose::Sim2/3`
-/// - `Vector = vec2/3<f32>`
+/// Since naga-oil doesn't support type aliases very well, this function performs textual
+/// substitution to replace generic type names with their 2D or 3D equivalents before shader
+/// compilation. This enables writing dimension-agnostic shader code that works for both
+/// 2D and 3D builds.
+///
+/// # Parameters
+///
+/// - `src`: The WGSL shader source code containing generic type aliases
+///
+/// # Returns
+///
+/// The modified shader source with all aliases replaced by concrete types
+///
+/// # Substituted Aliases
+///
+/// For 2D builds (feature = "dim2"):
+/// - `Transform` → `Pose::Sim2` (2D similarity transformation)
+/// - `AngVector` → `f32` (scalar angle)
+/// - `Vector` → `vec2<f32>` (2D vector)
+///
+/// For 3D builds (feature = "dim3"):
+/// - `Transform` → `Pose::Sim3` (3D similarity transformation)
+/// - `AngVector` → `vec3<f32>` (3D angular vector)
+/// - `Vector` → `vec3<f32>` (3D vector)
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let shader = "fn distance(a: Vector, b: Vector) -> f32 { ... }";
+/// let result = substitute_aliases(shader);
+/// // In 3D: "fn distance(a: vec3<f32>, b: vec3<f32>) -> f32 { ... }"
+/// ```
 pub fn substitute_aliases(src: &str) -> String {
     #[cfg(feature = "dim2")]
     return src
