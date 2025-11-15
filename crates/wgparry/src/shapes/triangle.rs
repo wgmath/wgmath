@@ -4,11 +4,16 @@
 //! building blocks of triangle meshes and are essential for representing complex
 //! geometric surfaces in collision detection.
 
+use crate::queries::WgProjection;
 use crate::substitute_aliases;
 use wgcore::Shader;
 
 #[derive(Shader)]
-#[shader(src = "triangle.wgsl", src_fn = "substitute_aliases")]
+#[shader(
+    derive(WgProjection),
+    src = "triangle.wgsl",
+    src_fn = "substitute_aliases"
+)]
 /// GPU shader for the triangle shape.
 ///
 /// This shader provides WGSL implementations for geometric operations on triangles,

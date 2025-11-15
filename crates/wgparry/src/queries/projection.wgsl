@@ -18,3 +18,51 @@ struct ProjectionResult {
     /// Is the point inside of the shape?
     is_inside: bool,
 }
+
+struct ProjectionWithLocation {
+    point: Vector,
+    bcoords: Vector,
+    // 0: vertex, 1: edge, 2: face
+    feature_type: u32,
+    id: u32,
+    inside: bool,
+}
+
+fn vertex(pt: Vector, id: u32, inside: bool) -> ProjectionWithLocation {
+    return ProjectionWithLocation(pt, Vector(), FEATURE_VERTEX, id, inside);
+}
+
+fn edge(pt: Vector, bcoords: vec2<f32>, id: u32, inside: bool) -> ProjectionWithLocation {
+    return ProjectionWithLocation(pt, vec3(bcoords, 0.0), FEATURE_EDGE, id, inside);
+}
+
+fn face(pt: Vector, bcoords: vec3<f32>, id: u32, inside: bool) -> ProjectionWithLocation {
+    return ProjectionWithLocation(pt, bcoords, FEATURE_FACE, id, inside);
+}
+
+fn solid(pt: Vector) -> ProjectionWithLocation {
+    return ProjectionWithLocation(pt, Vector(), FEATURE_SOLID, 0, true);
+}
+
+const FEATURE_VERTEX: u32 = 0;
+const FEATURE_EDGE: u32 = 1;
+const FEATURE_FACE: u32 = 2;
+const FEATURE_SOLID: u32 = 3;
+
+// TODO: move that to its own utility file
+fn relative_eq(a: vec3<f32>, b: vec3<f32>) -> bool {
+    const EPSILON: vec3<f32> = vec3(1.1920929E-7);
+
+    let abs_diff = abs(a - b);
+
+    // For when the numbers are really close together
+    if all(abs_diff <= EPSILON) {
+        return true;
+    }
+
+    let abs_a = abs(a);
+    let abs_b = abs(b);
+
+    // Use a relative difference comparison
+    return all(abs_diff <= max(abs_b, abs_a) * EPSILON);
+}

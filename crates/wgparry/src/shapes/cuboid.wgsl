@@ -91,6 +91,12 @@ fn projectPointOnBoundary(box: Cuboid, pose: Transform, pt: Vector) -> Proj::Pro
     return result;
 }
 
+fn support_point(box: Cuboid, pose: Transform, axis: Vector) -> Vector {
+    let local_axis = Pose::invMulVec(pose, axis);
+    let local_pt = local_support_point(box, local_axis);
+    return Pose::mulPt(pose, local_pt);
+}
+
 fn local_support_point(box: Cuboid, axis: Vector) -> Vector {
     return select(-box.halfExtents, box.halfExtents, axis >= Vector(0.0));
 }
