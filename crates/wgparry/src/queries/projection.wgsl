@@ -44,6 +44,41 @@ fn solid(pt: Vector) -> ProjectionWithLocation {
     return ProjectionWithLocation(pt, Vector(), FEATURE_SOLID, 0, true);
 }
 
+#if DIM == 3
+fn barycentric_coordinates(proj: ProjectionWithLocation) -> vec3<f32> {
+    var bcoords = vec3(0.0);
+
+    switch proj.feature_type {
+        case FEATURE_VERTEX: {
+            bcoords[proj.id] = 1.0;
+        }
+        case FEATURE_EDGE: {
+            switch proj.id {
+                case 0: {
+                    bcoords[0] = proj.bcoords[0];
+                    bcoords[1] = proj.bcoords[1];
+                }
+                case 1: {
+                    bcoords[1] = proj.bcoords[0];
+                    bcoords[2] = proj.bcoords[1];
+                }
+                case 2: {
+                    bcoords[0] = proj.bcoords[0];
+                    bcoords[2] = proj.bcoords[1];
+                }
+                default: { /* unreachable */ }
+            }
+        }
+        case FEATURE_FACE: {
+            bcoords = proj.bcoords;
+        }
+        default: { /* no valid barycentric coordinates */ }
+    }
+
+    return bcoords;
+}
+#endif
+
 const FEATURE_VERTEX: u32 = 0;
 const FEATURE_EDGE: u32 = 1;
 const FEATURE_FACE: u32 = 2;

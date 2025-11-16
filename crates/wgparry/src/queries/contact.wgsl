@@ -29,6 +29,7 @@
 #import wgparry::sat as Sat
 #import wgparry::polygonal_feature as PolygonalFeature
 #import wgparry::contact_manifold as Manifold
+#import wgparry::queries::contact_pfm_pfm_generic as PfmPfm
 
 #define_import_path wgparry::contact
 
@@ -102,6 +103,10 @@ fn ball_cuboid(pose12: Transform, ball1: Ball::Ball, cuboid2: Cuboid::Cuboid) ->
 }
 
 fn cuboid_cuboid(pose12: Transform, cuboid1: Cuboid::Cuboid, cuboid2: Cuboid::Cuboid, prediction: f32) -> Manifold::ContactManifold {
+    return PfmPfm::contact_manifold_pfm_pfm(pose12, cuboid1, 0.1, cuboid2, 0.1, prediction);
+}
+
+fn cuboid_cuboid_sat(pose12: Transform, cuboid1: Cuboid::Cuboid, cuboid2: Cuboid::Cuboid, prediction: f32) -> Manifold::ContactManifold {
     let pose21 = Pose::inv(pose12);
 
     /*

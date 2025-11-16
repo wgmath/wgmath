@@ -59,7 +59,7 @@ fn closest_points(
     var old_dir = Vector();
     let proj_len = length(proj.point);
 
-    if proj_len == 0.0 {
+    if proj_len != 0.0 {
         old_dir = -proj.point / proj_len;
     } else {
         return gjk_result_intersection();

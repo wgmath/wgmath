@@ -22,17 +22,16 @@ struct SimplexProjectionResult {
     point: vec3<f32>,
 }
 
-fn empty() -> VoronoiSimplex {
+fn init(pt: CsoPoint::CsoPoint) -> VoronoiSimplex {
     let origin = CsoPoint::origin();
     let prev_vertices = array(0u, 1u, 2u, 3u);
     let prev_proj = vec3(0.0, 0.0, 0.0);
     let prev_dim = 0u;
-    let vertices = array(origin, origin, origin, origin);
+    let vertices = array(pt, origin, origin, origin);
     let proj = vec3(0.0, 0.0, 0.0);
     let dim = 0u;
     return VoronoiSimplex(prev_vertices, prev_proj, prev_dim, vertices, proj, dim);
 }
-
 // TODO: all these free functions should be methods (not supported by wgsl).
 
 

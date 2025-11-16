@@ -233,3 +233,30 @@ fn project_local_point_and_get_location(shape: Triangle, pt: Vector, solid: bool
         }
     }
 }
+
+#if DIM == 3
+fn is_affinely_dependent(p1: Vector, p2: Vector, p3: Vector, eps: f32) -> bool {
+        let p1p2 = p2 - p1;
+        let p1p3 = p3 - p1;
+        let c = cross(p1p2, p1p3);
+        return relative_eq(dot(c, c), 0.0, eps * eps);
+}
+
+
+// NOTE: ported from the `approx` rust crate.
+// TODO: refactor to its own helper module.
+fn relative_eq(a: f32, b: f32, eps: f32) -> bool {
+    let abs_diff = abs(a - b);
+
+    // For when the numbers are really close together
+    if abs_diff <= eps {
+        return true;
+    }
+
+    let abs_a = abs(a);
+    let abs_b = abs(b);
+
+    // Use a relative difference comparison
+    return abs_diff <= max(abs_b, abs_a) * eps;
+}
+#endif
