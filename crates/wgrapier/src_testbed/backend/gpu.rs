@@ -36,8 +36,13 @@ impl GpuBackend {
         let pipeline = GpuPhysicsPipeline::from_device(gpu.device())
             .map_err(|e| format!("Failed to compile shaders: {}", e))?;
 
-        let state =
-            GpuPhysicsState::from_rapier(gpu.device(), &phys.bodies, &phys.colliders, use_jacobi);
+        let state = GpuPhysicsState::from_rapier(
+            gpu.device(),
+            &phys.bodies,
+            &phys.colliders,
+            &phys.impulse_joints,
+            use_jacobi,
+        );
         let poses_staging = GpuVector::uninit(
             gpu.device(),
             state.poses().len() as u32,
@@ -64,8 +69,13 @@ impl GpuBackend {
         phys: &SimulationState,
         use_jacobi: bool,
     ) -> Self {
-        let state =
-            GpuPhysicsState::from_rapier(gpu.device(), &phys.bodies, &phys.colliders, use_jacobi);
+        let state = GpuPhysicsState::from_rapier(
+            gpu.device(),
+            &phys.bodies,
+            &phys.colliders,
+            &phys.impulse_joints,
+            use_jacobi,
+        );
         let poses_staging = GpuVector::uninit(
             gpu.device(),
             state.poses().len() as u32,
@@ -101,6 +111,12 @@ impl GpuBackend {
 impl SimulationBackend for GpuBackend {
     fn poses(&self) -> &[GpuSim] {
         &self.poses_cache
+    }
+    fn num_bodies(&self) -> usize {
+        self.poses_cache.len()
+    }
+    fn num_joints(&self) -> usize {
+        self.state.joints().len()
     }
 
     async fn step(

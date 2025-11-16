@@ -6,6 +6,9 @@ use wgrapier_testbed2d::{SimulationState, Testbed};
 mod balls2;
 mod boxes2;
 mod boxes_and_balls2;
+mod joint_ball2;
+mod joint_fixed2;
+mod joint_prismatic2;
 mod pyramid2;
 
 fn demo_name_from_command_line() -> Option<String> {
@@ -40,6 +43,9 @@ pub async fn main() {
         ("Boxes", boxes2::init_world),
         ("Boxes & balls", boxes_and_balls2::init_world),
         ("Pyramid", pyramid2::init_world),
+        ("Joints (spherical)", joint_ball2::init_world),
+        ("Joints (prismatic)", joint_prismatic2::init_world),
+        ("Joints (fixed)", joint_fixed2::init_world),
     ];
 
     // Lexicographic sort, with stress tests moved at the end of the list.

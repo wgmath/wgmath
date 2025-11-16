@@ -46,6 +46,7 @@ pub use coloring::{ColoringArgs, WgColoring};
 pub use constraint::{
     GpuTwoBodyConstraint, GpuTwoBodyConstraintBuilder, GpuTwoBodyConstraintInfos, WgConstraint,
 };
+pub use joint::{GpuImpulseJointSet, JointSolverArgs, WgJointSolver};
 pub use mprops_update::WgMpropsUpdate;
 pub use sim_params::{GpuSimParams, WgSimParams};
 pub use solver::{SolverArgs, WgSolver};
@@ -54,6 +55,7 @@ pub use warmstart::{WarmstartArgs, WgWarmstart};
 pub mod body;
 mod coloring;
 mod constraint;
+mod joint;
 mod mprops_update;
 pub mod prefix_sum;
 mod sim_params;

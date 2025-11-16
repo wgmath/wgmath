@@ -31,11 +31,8 @@ struct LocalMassProperties {
     // TODO: a representation with Quaternion & vec3 (for frame & principal inertia) would be much more compact and make
     //       this struct have the size of a mat4x4
 #if DIM == 2
-   /// The square root of the inverse inertia tensor (scalar in 2D).
-   ///
-   /// In 2D, rotational inertia is a scalar. Storing the square root allows for
-   /// efficient computation: angular_acceleration = inv_inertia_sqrt * (inv_inertia_sqrt * torque)
-   inv_inertia_sqrt: f32,
+   /// The inverse inertia tensor (scalar in 2D).
+   inv_inertia: f32,
 #else
    /// The reference frame for the principal inertia axes (3D only).
    ///
@@ -43,11 +40,11 @@ struct LocalMassProperties {
    /// This is combined with the body's world rotation to compute world-space inertia.
    inertia_ref_frame: Rot::Quat,
 
-   /// Square root of the inverse principal inertia components (3D only).
+   /// The inverse principal inertia components (3D only).
    ///
    /// The three components correspond to the principal moments of inertia about the
-   /// body's principal axes. Storing square roots enables efficient calculations.
-   inv_principal_inertia_sqrt: vec3<f32>,
+   /// body's principal axes.
+   inv_principal_inertia: vec3<f32>,
 #endif
    /// The rigid-body's inverse mass along each coordinate axis.
    ///
@@ -71,18 +68,18 @@ struct WorldMassProperties {
     // TODO: a representation with Quaternion & vec3 (for frame & principal inertia) would be much more compact and make
     //       this struct have the size of a mat4x4
 #if DIM == 2
-   /// The square root of the inverse inertia tensor in world space (scalar in 2D).
+   /// The inverse inertia tensor in world space (scalar in 2D).
    ///
    /// In 2D, this is the same as the local-space value since rotation doesn't affect
    /// scalar inertia. Kept separate for API consistency with 3D.
-   inv_inertia_sqrt: f32,
+   inv_inertia: f32,
 #else
-   /// The square root of the inverse inertia tensor in world space (3x3 matrix in 3D).
+   /// The inverse inertia tensor in world space (3x3 matrix in 3D).
    ///
    /// Computed by rotating the local principal inertia into world space:
-   /// inv_inertia_world = R * diag(inv_principal_sqrt²) * R^T
+   /// inv_inertia_world = R * diag(inv_principal_sqrt) * R^T
    /// where R is the combined rotation of the body and principal axes frame.
-   inv_inertia_sqrt: mat3x3<f32>,
+   inv_inertia: mat3x3<f32>,
 #endif
    /// The rigid-body's inverse mass along each coordinate axis in world space.
    ///
@@ -171,8 +168,7 @@ fn applyImpulse(mprops: WorldMassProperties, velocity: Velocity, imp: Impulse) -
     let acc_lin = mprops.inv_mass * imp.linear;
 
     // Angular velocity change: Δω = I⁻¹ * τ⋅Δt = I⁻¹ * angular_impulse
-    // Using square root formulation: I⁻¹ = sqrt(I⁻¹) * sqrt(I⁻¹)
-    let acc_ang = mprops.inv_inertia_sqrt * (mprops.inv_inertia_sqrt * imp.angular);
+    let acc_ang = mprops.inv_inertia * imp.angular;
 
     return Velocity(velocity.linear + acc_lin, velocity.angular + acc_ang);
 }
@@ -196,7 +192,7 @@ fn integrateForces(mprops: WorldMassProperties, velocity: Velocity, force: Force
     let acc_lin = mprops.inv_mass * force.linear;
 
     // Angular acceleration: α = I⁻¹ * τ
-    let acc_ang = mprops.inv_inertia_sqrt * (mprops.inv_inertia_sqrt * force.angular);
+    let acc_ang = mprops.inv_inertia * force.angular;
 
     // Explicit Euler: v_new = v_old + a * dt
     return Velocity(velocity.linear + acc_lin * dt, velocity.angular + acc_ang * dt);
@@ -260,7 +256,7 @@ fn updateMprops(pose: Transform, local_mprops: LocalMassProperties) -> WorldMass
     let world_com = Pose::mulPt(pose, local_mprops.com);
 
     // In 2D, inertia is scalar and doesn't change with rotation
-    return WorldMassProperties(local_mprops.inv_inertia_sqrt, local_mprops.inv_mass, world_com);
+    return WorldMassProperties(local_mprops.inv_inertia, local_mprops.inv_mass, world_com);
 }
 
 /// Computes the linear velocity at a specific point on a rigid body (2D version).
@@ -342,9 +338,9 @@ fn updateMprops(pose: Transform, local_mprops: LocalMassProperties) -> WorldMass
 
     // Create diagonal matrix from principal inertia components
     let diag = mat3x3(
-        vec3(local_mprops.inv_principal_inertia_sqrt.x, 0.0, 0.0),
-        vec3(0.0, local_mprops.inv_principal_inertia_sqrt.y, 0.0),
-        vec3(0.0, 0.0, local_mprops.inv_principal_inertia_sqrt.z),
+        vec3(local_mprops.inv_principal_inertia.x, 0.0, 0.0),
+        vec3(0.0, local_mprops.inv_principal_inertia.y, 0.0),
+        vec3(0.0, 0.0, local_mprops.inv_principal_inertia.z),
     );
 
     // Transform inertia to world space: I_world = R * I_principal * R^T

@@ -114,9 +114,13 @@ pub struct GpuTwoBodyConstraintElement {
 #[derive(Copy, Clone, PartialEq, Debug, ShaderType)]
 pub struct GpuTwoBodyConstraintNormalPart {
     /// Angular Jacobian component for body A.
-    pub gcross_a: AngVector<f32>,
+    pub torque_dir_a: AngVector<f32>,
+    /// Angular Jacobian component for body A, multiplied by the inverse angular inertia.
+    pub ii_torque_dir_a: AngVector<f32>,
     /// Angular Jacobian component for body B.
-    pub gcross_b: AngVector<f32>,
+    pub torque_dir_b: AngVector<f32>,
+    /// Angular Jacobian component for body B, multiplied by the inverse angular inertia.
+    pub ii_torque_dir_b: AngVector<f32>,
     /// Right-hand side with bias term (used in stabilization phase).
     pub rhs: f32,
     /// Right-hand side without bias term (used in velocity solving phase).
@@ -137,9 +141,13 @@ pub struct GpuTwoBodyConstraintNormalPart {
 #[derive(Copy, Clone, PartialEq, Debug, ShaderType)]
 pub struct GpuTwoBodyConstraintTangentPart {
     /// Angular Jacobian components for body A (one or two directions).
-    pub gcross_a: [AngVector<f32>; SUB_LEN],
+    pub torque_dir_a: [AngVector<f32>; SUB_LEN],
+    /// Angular Jacobian components for body A (one or two directions) multiplied by the angular inertia tensor.
+    pub ii_torque_dir_a: [AngVector<f32>; SUB_LEN],
     /// Angular Jacobian components for body B (one or two directions).
-    pub gcross_b: [AngVector<f32>; SUB_LEN],
+    pub torque_dir_b: [AngVector<f32>; SUB_LEN],
+    /// Angular Jacobian components for body B (one or two directions) multiplied by the angular inertia tensor.
+    pub ii_torque_dir_b: [AngVector<f32>; SUB_LEN],
     /// Right-hand sides with bias terms.
     pub rhs: [f32; SUB_LEN],
     /// Right-hand sides without bias terms.

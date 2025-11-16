@@ -18,6 +18,7 @@
 //!   proved to be entirely useless (too unstable) so we made this compromise.
 
 use crate::dynamics::constraint::{GpuTwoBodyConstraint, GpuTwoBodyConstraintBuilder};
+use crate::dynamics::joint::{JointSolverArgs, WgJointSolver};
 use crate::dynamics::prefix_sum::{PrefixSumWorkspace, WgPrefixSum};
 use crate::dynamics::{GpuLocalMassProperties, GpuVelocity, GpuWorldMassProperties, WgConstraint};
 use crate::dynamics::{GpuSimParams, WgBody, WgSimParams};
@@ -107,7 +108,7 @@ pub struct SolverArgs<'a> {
     pub vels: &'a GpuVector<GpuVelocity>,
     /// Solver working velocities.
     pub solver_vels: &'a GpuVector<GpuVelocity>,
-    /// Solver output velocities.
+    /// Solver output velocities (Jacobi only).
     pub solver_vels_out: &'a GpuVector<GpuVelocity>,
     /// Accumulated velocity increments during substeps.
     pub solver_vels_inc: &'a GpuVector<GpuVelocity>,
@@ -238,7 +239,9 @@ impl WgSolver {
         &self,
         device: &Device,
         pass: &mut ComputePass,
+        joint_solver: &WgJointSolver,
         mut args: SolverArgs<'a>,
+        joint_args: JointSolverArgs<'a>,
         use_jacobi: bool,
     ) {
         let num_substeps = 4; // TODO: make this configurable.
@@ -258,6 +261,7 @@ impl WgSolver {
                 ],
             )
             .dispatch((args.vels.len() as u32).div_ceil(Self::WORKGROUP_SIZE));
+        joint_solver.init(device, pass, &joint_args);
 
         for _ in 0..num_substeps {
             /*
@@ -294,6 +298,7 @@ impl WgSolver {
                     ],
                 )
                 .dispatch_indirect(args.contacts_len_indirect.buffer());
+            joint_solver.update(device, pass, &joint_args);
 
             /*
              * Warmstart.
@@ -341,6 +346,7 @@ impl WgSolver {
             /*
              * Solve with bias.
              */
+            joint_solver.solve(device, pass, &joint_args, true);
             if !use_jacobi {
                 KernelDispatch::new(device, pass, &self.reset_color)
                     .bind_at(0, [(args.curr_color.buffer(), 8)])
@@ -389,7 +395,6 @@ impl WgSolver {
                     [
                         (args.sim_params.buffer(), 0),
                         (args.poses.buffer(), 1),
-                        (args.mprops.buffer(), 3),
                         (args.colliders_len.buffer(), 4),
                         (args.local_mprops.buffer(), 5),
                     ],
@@ -399,6 +404,7 @@ impl WgSolver {
             /*
              * Solve WITHOUT bias.
              */
+            joint_solver.solve(device, pass, &joint_args, false);
             KernelDispatch::new(device, pass, &self.remove_cfm_and_bias)
                 .bind_at(
                     0,
@@ -455,11 +461,7 @@ impl WgSolver {
             .bind_at(0, [(args.solver_vels.buffer(), 3)])
             .bind_at(
                 1,
-                [
-                    (args.vels.buffer(), 2),
-                    (args.mprops.buffer(), 3),
-                    (args.colliders_len.buffer(), 4),
-                ],
+                [(args.vels.buffer(), 2), (args.colliders_len.buffer(), 4)],
             )
             .dispatch((args.vels.len() as u32).div_ceil(Self::WORKGROUP_SIZE));
     }

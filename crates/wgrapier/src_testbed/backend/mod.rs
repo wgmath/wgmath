@@ -24,6 +24,8 @@ pub enum BackendType {
 pub trait SimulationBackend {
     /// Get the current poses for rendering
     fn poses(&self) -> &[GpuSim];
+    fn num_bodies(&self) -> usize;
+    fn num_joints(&self) -> usize;
 
     /// Step the simulation
     async fn step(
@@ -55,6 +57,20 @@ impl PhysicsBackend {
         match self {
             PhysicsBackend::Cpu(backend) => backend.poses(),
             PhysicsBackend::Gpu(backend) => backend.poses(),
+        }
+    }
+
+    pub fn num_bodies(&self) -> usize {
+        match self {
+            PhysicsBackend::Cpu(backend) => backend.num_bodies(),
+            PhysicsBackend::Gpu(backend) => backend.num_bodies(),
+        }
+    }
+
+    pub fn num_joints(&self) -> usize {
+        match self {
+            PhysicsBackend::Cpu(backend) => backend.num_joints(),
+            PhysicsBackend::Gpu(backend) => backend.num_joints(),
         }
     }
 }

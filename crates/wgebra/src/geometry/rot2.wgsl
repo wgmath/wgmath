@@ -1,5 +1,7 @@
 #define_import_path wgebra::rot2
 
+#import wgebra::trig as Trig
+
 
 /// Compact representation of a 2D rotation.
 struct Rot2 {
@@ -43,6 +45,11 @@ fn toMatrix(r: Rot2) -> mat2x2<f32> {
         vec2(r.cos_sin.x, r.cos_sin.y),
         vec2(-r.cos_sin.y, r.cos_sin.x)
     );
+}
+
+/// The rotation angle (in radians).
+fn angle(r: Rot2) -> f32 {
+    return Trig::stable_atan2(r.cos_sin.y, r.cos_sin.x);
 }
 
 /// The inverse of a 2d rotation.
