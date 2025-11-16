@@ -51,12 +51,12 @@ pub struct GpuVelocity {
 pub struct GpuLocalMassProperties {
     /// Square root of inverse principal inertia (scalar in 2D).
     #[cfg(feature = "dim2")]
-    pub inv_principal_inertia_sqrt: f32,
+    pub inv_principal_inertia: f32,
     #[cfg(feature = "dim3")]
     inv_ref_frame: Vector4<f32>,
     /// Square root of inverse principal inertia tensor (3D vector in 3D).
     #[cfg(feature = "dim3")]
-    pub inv_principal_inertia_sqrt: nalgebra::Vector3<f32>,
+    pub inv_principal_inertia: nalgebra::Vector3<f32>,
     /// The inverse mass.
     pub inv_mass: Vector<f32>,
     /// The center-of-mass.
@@ -68,7 +68,7 @@ pub struct GpuLocalMassProperties {
 /// Rigid-body mass-properties, with a layout compatible with the corresponding WGSL struct.
 pub struct GpuWorldMassProperties {
     /// The inverse angular inertia tensor.
-    pub inv_inertia_sqrt: AngularInertia<f32>,
+    pub inv_inertia: AngularInertia<f32>,
     /// The inverse mass.
     pub inv_mass: Vector<f32>,
     /// The center-of-mass.
@@ -78,10 +78,7 @@ pub struct GpuWorldMassProperties {
 impl From<MassProperties> for GpuLocalMassProperties {
     fn from(props: MassProperties) -> Self {
         GpuLocalMassProperties {
-            #[cfg(feature = "dim2")]
-            inv_principal_inertia_sqrt: props.inv_principal_inertia.sqrt(),
-            #[cfg(feature = "dim3")]
-            inv_principal_inertia_sqrt: props.inv_principal_inertia.map(|e| e.sqrt()),
+            inv_principal_inertia: props.inv_principal_inertia,
             #[cfg(feature = "dim3")]
             inv_ref_frame: props.principal_inertia_local_frame.coords,
             inv_mass: Vector::repeat(props.inv_mass),
@@ -95,11 +92,11 @@ impl Default for GpuLocalMassProperties {
         GpuLocalMassProperties {
             #[rustfmt::skip]
             #[cfg(feature = "dim2")]
-            inv_principal_inertia_sqrt: 1.0,
+            inv_principal_inertia: 1.0,
             #[cfg(feature = "dim3")]
             inv_ref_frame: Vector4::w(),
             #[cfg(feature = "dim3")]
-            inv_principal_inertia_sqrt: Vector::repeat(1.0),
+            inv_principal_inertia: Vector::repeat(1.0),
             inv_mass: Vector::repeat(1.0),
             com: Vector::zeros(),
         }
@@ -111,9 +108,9 @@ impl Default for GpuWorldMassProperties {
         GpuWorldMassProperties {
             #[rustfmt::skip]
             #[cfg(feature = "dim2")]
-            inv_inertia_sqrt: 1.0,
+            inv_inertia: 1.0,
             #[cfg(feature = "dim3")]
-            inv_inertia_sqrt: AngularInertia::identity(),
+            inv_inertia: AngularInertia::identity(),
             inv_mass: Vector::repeat(1.0),
             com: Vector::zeros(),
         }

@@ -60,6 +60,10 @@ fn renormalizeFast(q: Quat) -> Quat {
     return Quat(q.coords * (0.5 * (3.0 - sq_norm)));
 }
 
+fn imag(q: Quat) -> vec3<f32> {
+    return q.coords.xyz;
+}
+
 /// The inverse (conjugate) of a unit quaternion.
 fn inv(q: Quat) -> Quat {
     return Quat(vec4(-q.coords.xyz, q.coords.w));
@@ -84,4 +88,50 @@ fn invMulVec(q: Quat, v: vec3<f32>) -> vec3<f32> {
     let t = cross(q.coords.xyz, v) * 2.0;
     let c = cross(q.coords.xyz, t);
     return t * -q.coords.w + c + v;
+}
+
+fn diff_conj1_2(a: Quat, b: Quat) -> mat3x3<f32> {
+        let v1 = imag(a);
+        let v2 = imag(b);
+        let w1 = a.coords.w;
+        let w2 = b.coords.w;
+
+        // TODO: this can probably be optimized a lot by unrolling the ops.
+        return (tensor_prod(v1, v2) + diag(w1 * w2)
+            - cross_matrix(v1 * w2 + v2 * w1)
+            + cross_matrix(v1) * cross_matrix(v2))
+            * 0.5;
+}
+
+/*
+ * Misc utilities.
+ */
+fn tensor_prod(a: vec3<f32>, b: vec3<f32>) -> mat3x3<f32> {
+    // NOTE: keep in mind that the matrix is initialized column
+    //       by column. So the element order look transposed compared
+    //       to traditional mathematical notation.
+    return mat3x3(
+        vec3(a.x * b.x, a.y * b.x, a.z * b.x),
+        vec3(a.x * b.y, a.y * b.y, a.z * b.y),
+        vec3(a.x * b.z, a.y * b.z, a.z * b.z),
+    );
+}
+
+fn diag(elt: f32) -> mat3x3<f32> {
+    return mat3x3(
+        vec3(elt, 0.0, 0.0),
+        vec3(0.0, elt, 0.0),
+        vec3(0.0, 0.0, elt),
+    );
+}
+
+fn cross_matrix(r: vec3<f32>) -> mat3x3<f32> {
+    // NOTE: keep in mind that the matrix is initialized column
+    //       by column. So the element order look transposed compared
+    //       to traditional mathematical notation.
+    return mat3x3(
+        vec3(0.0, r.z, -r.y),
+        vec3(-r.z, 0.0, r.x),
+        vec3(r.y, -r.x, 0.0),
+    );
 }

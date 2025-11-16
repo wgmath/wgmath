@@ -62,7 +62,7 @@ impl CpuBackend {
         #[allow(unused_mut)] // mut not needed in 2D but needed in 3d.
         let mut params = IntegrationParameters::default();
         // NOTE: to keep the comparison fair, use the same friction model as the GPU version
-        //       (the GPU doesn’t implement  twist friction yet).
+        //       (the GPU doesn’t implement twist friction yet).
         #[cfg(feature = "dim3")]
         {
             params.friction_model = FrictionModel::Coulomb;
@@ -87,6 +87,12 @@ impl CpuBackend {
 impl SimulationBackend for CpuBackend {
     fn poses(&self) -> &[GpuSim] {
         &self.poses_cache
+    }
+    fn num_bodies(&self) -> usize {
+        self.poses().len()
+    }
+    fn num_joints(&self) -> usize {
+        self.impulse_joints.len()
     }
 
     async fn step(

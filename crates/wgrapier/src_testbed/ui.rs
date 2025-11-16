@@ -135,7 +135,8 @@ pub fn render_ui(
 
             ui.separator();
 
-            ui.label(format!("Number of objects: {}", physics.backend.poses().len()));
+            ui.label(format!("Bodies count: {}", physics.backend.num_bodies()));
+            ui.label(format!("Joints count: {}", physics.backend.num_joints()));
 
             if *backend_type == BackendType::Cpu {
                 ui.label(format!(

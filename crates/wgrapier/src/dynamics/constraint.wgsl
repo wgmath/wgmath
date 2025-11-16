@@ -129,10 +129,14 @@ struct TwoBodyConstraintElement {
 struct TwoBodyConstraintNormalPart {
     /// Angular contribution for body A: r_a × normal
     /// (In 2D: scalar cross product, in 3D: vector cross product)
-    gcross_a: AngVector,
+    torque_dir_a: AngVector,
+    /// `torque_dir_a` multiplied by the inverse angular inertia tensor.
+    ii_torque_dir_a: AngVector,
 
     /// Angular contribution for body B: r_b × normal
-    gcross_b: AngVector,
+    torque_dir_b: AngVector,
+    /// `torque_dir_b` multiplied by the inverse angular inertia tensor.
+    ii_torque_dir_b: AngVector,
 
     /// Right-hand side: target relative velocity (includes bias for correction).
     /// rhs = desired_velocity + bias_velocity
@@ -160,10 +164,14 @@ struct TwoBodyConstraintNormalPart {
 /// Solved as a bilateral constraint with limits.
 struct TwoBodyConstraintTangentPart {
     /// Angular contributions for body A (one per tangent direction).
-    gcross_a: array<AngVector, SUB_LEN>,
+    torque_dir_a: array<AngVector, SUB_LEN>,
+    /// `torque_dir_b` multiplied by the inverse angular inertia tensor.
+    ii_torque_dir_a: array<AngVector, SUB_LEN>,
 
     /// Angular contributions for body B (one per tangent direction).
-    gcross_b: array<AngVector, SUB_LEN>,
+    torque_dir_b: array<AngVector, SUB_LEN>,
+    /// `torque_dir_b` multiplied by the inverse angular inertia tensor.
+    ii_torque_dir_b: array<AngVector, SUB_LEN>,
 
     /// Right-hand sides (one per tangent direction).
     rhs: array<f32, SUB_LEN>,

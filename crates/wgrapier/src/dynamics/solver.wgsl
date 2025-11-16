@@ -199,12 +199,7 @@ fn cleanup(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num
         // HACK: to handle static bodies.
         if any(mprops[i].inv_mass != Vector()) {
             solver_vels[i].linear = vels[i].linear;
-
-#if DIM == 2
-            solver_vels[i].angular = vels[i].angular / mprops[i].inv_inertia_sqrt;
-#else
-            solver_vels[i].angular = Inv::inv3(mprops[i].inv_inertia_sqrt) * vels[i].angular;
-#endif
+            solver_vels[i].angular = vels[i].angular;
         } else {
             solver_vels[i].linear = Vector(0.0);
             solver_vels[i].angular = AngVector(0.0);
@@ -258,9 +253,9 @@ fn step_jacobi(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin
                 {
                     let c = constraints[cid].elements[k].normal_part;
                     let prev_impulse = select(c.impulse_jacobi, c.impulse, solver_body1 == body_id);
-                    let dvel = dot(dir_a, solver_vel1.linear) + gdot(c.gcross_a, solver_vel1.angular)
+                    let dvel = dot(dir_a, solver_vel1.linear) + gdot(c.torque_dir_a, solver_vel1.angular)
                         - dot(dir_a, solver_vel2.linear)
-                        + gdot(c.gcross_b, solver_vel2.angular)
+                        + gdot(c.torque_dir_b, solver_vel2.angular)
                         + c.rhs;
                     let new_impulse = cfm_factor * max(prev_impulse - c.r * dvel, 0.0);
                     let delta_impulse = new_impulse - prev_impulse;
@@ -272,9 +267,9 @@ fn step_jacobi(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin
                     }
 
                     solver_vel1.linear += dir_a * im_a * delta_impulse;
-                    solver_vel1.angular += c.gcross_a * delta_impulse;
+                    solver_vel1.angular += c.ii_torque_dir_a * delta_impulse;
                     solver_vel2.linear += dir_a * im_b * -delta_impulse;
-                    solver_vel2.angular += c.gcross_b * delta_impulse;
+                    solver_vel2.angular += c.ii_torque_dir_b * delta_impulse;
 
                     limit = new_impulse * friction_coeff;
                 }
@@ -285,9 +280,9 @@ fn step_jacobi(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin
 
         #if DIM == 2
                     let prev_impulse = select(c.impulse_jacobi[0], c.impulse[0], solver_body1 == body_id);
-                    let dvel = dot(tangent_a, solver_vel1.linear) + gdot(c.gcross_a[0], solver_vel1.angular)
+                    let dvel = dot(tangent_a, solver_vel1.linear) + gdot(c.torque_dir_a[0], solver_vel1.angular)
                         - dot(tangent_a, solver_vel2.linear)
-                        + gdot(c.gcross_b[0], solver_vel2.angular)
+                        + gdot(c.torque_dir_b[0], solver_vel2.angular)
                         + c.rhs[0];
                     let new_impulse = cfm_factor * clamp(prev_impulse - c.r[0] * dvel, -limit, limit);
                     let delta_impulse = new_impulse - prev_impulse;
@@ -299,21 +294,21 @@ fn step_jacobi(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin
                     }
 
                     solver_vel1.linear += tangent_a * im_a * delta_impulse;
-                    solver_vel1.angular += c.gcross_a[0] * delta_impulse;
+                    solver_vel1.angular += c.ii_torque_dir_a[0] * delta_impulse;
                     solver_vel2.linear += tangent_a * im_b * -delta_impulse;
-                    solver_vel2.angular += c.gcross_b[0] * delta_impulse;
+                    solver_vel2.angular += c.ii_torque_dir_b[0] * delta_impulse;
         #else
                     let prev_impulse = select(c.impulse_jacobi, c.impulse, solver_body1 == body_id);
                     let tangents_a = array(tangent_a, cross(dir_a, tangent_a));
                     let dvel_0 = dot(tangents_a[0], solver_vel1.linear)
-                        + gdot(c.gcross_a[0], solver_vel1.angular)
+                        + gdot(c.torque_dir_a[0], solver_vel1.angular)
                         - dot(tangents_a[0], solver_vel2.linear)
-                        + gdot(c.gcross_b[0], solver_vel2.angular)
+                        + gdot(c.torque_dir_b[0], solver_vel2.angular)
                         + c.rhs[0];
                     let dvel_1 = dot(tangents_a[1], solver_vel1.linear)
-                        + gdot(c.gcross_a[1], solver_vel1.angular)
+                        + gdot(c.torque_dir_a[1], solver_vel1.angular)
                         - dot(tangents_a[1], solver_vel2.linear)
-                        + gdot(c.gcross_b[1], solver_vel2.angular)
+                        + gdot(c.torque_dir_b[1], solver_vel2.angular)
                         + c.rhs[1];
 
                     let dvel_00 = dvel_0 * dvel_0;
@@ -338,11 +333,11 @@ fn step_jacobi(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin
                     solver_vel1.linear +=
                         (tangents_a[0] * dlambda[0] + tangents_a[1] * dlambda[1]) * im_a;
                     solver_vel1.angular +=
-                        c.gcross_a[0] * dlambda[0] + c.gcross_a[1] * dlambda[1];
+                        c.ii_torque_dir_a[0] * dlambda[0] + c.ii_torque_dir_a[1] * dlambda[1];
                     solver_vel2.linear +=
                         (tangents_a[0] * -dlambda[0] + tangents_a[1] * -dlambda[1]) * im_b;
                     solver_vel2.angular +=
-                        c.gcross_b[0] * dlambda[0] + c.gcross_b[1] * dlambda[1];
+                        c.ii_torque_dir_b[0] * dlambda[0] + c.ii_torque_dir_b[1] * dlambda[1];
         #endif
                 }
             }
@@ -423,10 +418,10 @@ fn warmstart_without_colors(@builtin(global_invocation_id) invocation_id: vec3<u
                     let c = constraints[cid].elements[k].normal_part;
                     if solver_body_1 == body_id {
                         solver_vel.linear += dir_a * im_a * c.impulse;
-                        solver_vel.angular += c.gcross_a * c.impulse;
+                        solver_vel.angular += c.ii_torque_dir_a * c.impulse;
                     } else {
                         solver_vel.linear += dir_a * im_b * -c.impulse_jacobi;
-                        solver_vel.angular += c.gcross_b * c.impulse_jacobi;
+                        solver_vel.angular += c.ii_torque_dir_b * c.impulse_jacobi;
                     }
                 }
 
@@ -437,10 +432,10 @@ fn warmstart_without_colors(@builtin(global_invocation_id) invocation_id: vec3<u
             #if DIM == 2
                     if solver_body_1 == body_id {
                         solver_vel.linear += tangent_a * im_a * c.impulse[0];
-                        solver_vel.angular += c.gcross_a[0] * c.impulse[0];
+                        solver_vel.angular += c.ii_torque_dir_a[0] * c.impulse[0];
                     } else {
                         solver_vel.linear += tangent_a * im_b * -c.impulse_jacobi[0];
-                        solver_vel.angular += c.gcross_b[0] * c.impulse_jacobi[0];
+                        solver_vel.angular += c.ii_torque_dir_b[0] * c.impulse_jacobi[0];
                     }
             #else
                     let tangents_a = array(tangent_a, cross(dir_a, tangent_a));
@@ -448,12 +443,12 @@ fn warmstart_without_colors(@builtin(global_invocation_id) invocation_id: vec3<u
                         solver_vel.linear +=
                             (tangents_a[0] * c.impulse[0] + tangents_a[1] * c.impulse[1]) * im_a;
                         solver_vel.angular +=
-                            c.gcross_a[0] * c.impulse[0] + c.gcross_a[1] * c.impulse[1];
+                            c.ii_torque_dir_a[0] * c.impulse[0] + c.ii_torque_dir_a[1] * c.impulse[1];
                     } else {
                         solver_vel.linear +=
                             (tangents_a[0] * -c.impulse[0] + tangents_a[1] * -c.impulse_jacobi[1]) * im_b;
                         solver_vel.angular +=
-                            c.gcross_b[0] * c.impulse[0] + c.gcross_b[1] * c.impulse_jacobi[1];
+                            c.ii_torque_dir_b[0] * c.impulse[0] + c.ii_torque_dir_b[1] * c.impulse_jacobi[1];
                     }
             #endif
                 }
@@ -495,9 +490,9 @@ fn warmstart(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(n
             {
                 let c = constraints[i].elements[k].normal_part;
                 solver_vel1.linear += dir_a * im_a * c.impulse;
-                solver_vel1.angular += c.gcross_a * c.impulse;
+                solver_vel1.angular += c.ii_torque_dir_a * c.impulse;
                 solver_vel2.linear += dir_a * im_b * -c.impulse;
-                solver_vel2.angular += c.gcross_b * c.impulse;
+                solver_vel2.angular += c.ii_torque_dir_b * c.impulse;
             }
 
             // Warmstart the tangent parts of the constraint.
@@ -506,19 +501,19 @@ fn warmstart(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(n
 
     #if DIM == 2
                 solver_vel1.linear += tangent_a * im_a * c.impulse[0];
-                solver_vel1.angular += c.gcross_a[0] * c.impulse[0];
+                solver_vel1.angular += c.ii_torque_dir_a[0] * c.impulse[0];
                 solver_vel2.linear += tangent_a * im_b * -c.impulse[0];
-                solver_vel2.angular += c.gcross_b[0] * c.impulse[0];
+                solver_vel2.angular += c.ii_torque_dir_b[0] * c.impulse[0];
     #else
                 let tangents_a = array(tangent_a, cross(dir_a, tangent_a));
                 solver_vel1.linear +=
                     (tangents_a[0] * c.impulse[0] + tangents_a[1] * c.impulse[1]) * im_a;
                 solver_vel1.angular +=
-                    c.gcross_a[0] * c.impulse[0] + c.gcross_a[1] * c.impulse[1];
+                    c.ii_torque_dir_a[0] * c.impulse[0] + c.ii_torque_dir_a[1] * c.impulse[1];
                 solver_vel2.linear +=
                     (tangents_a[0] * -c.impulse[0] + tangents_a[1] * -c.impulse[1]) * im_b;
                 solver_vel2.angular +=
-                    c.gcross_b[0] * c.impulse[0] + c.gcross_b[1] * c.impulse[1];
+                    c.ii_torque_dir_b[0] * c.impulse[0] + c.ii_torque_dir_b[1] * c.impulse[1];
     #endif
             }
         }
@@ -588,9 +583,9 @@ fn step_gauss_seidel(@builtin(global_invocation_id) invocation_id: vec3<u32>, @b
             {
                 let c = constraints[i].elements[k].normal_part;
 
-                let dvel = dot(dir_a, solver_vel1.linear) + gdot(c.gcross_a, solver_vel1.angular)
+                let dvel = dot(dir_a, solver_vel1.linear) + gdot(c.torque_dir_a, solver_vel1.angular)
                     - dot(dir_a, solver_vel2.linear)
-                    + gdot(c.gcross_b, solver_vel2.angular)
+                    + gdot(c.torque_dir_b, solver_vel2.angular)
                     + c.rhs;
                 let new_impulse = cfm_factor * max(c.impulse - c.r * dvel, 0.0);
                 let delta_impulse = new_impulse - c.impulse;
@@ -598,10 +593,10 @@ fn step_gauss_seidel(@builtin(global_invocation_id) invocation_id: vec3<u32>, @b
                 constraints[i].elements[k].normal_part.impulse = new_impulse;
 
                 solver_vel1.linear += dir_a * im_a * delta_impulse;
-                solver_vel1.angular += c.gcross_a * delta_impulse;
+                solver_vel1.angular += c.ii_torque_dir_a * delta_impulse;
 
                 solver_vel2.linear += dir_a * im_b * -delta_impulse;
-                solver_vel2.angular += c.gcross_b * delta_impulse;
+                solver_vel2.angular += c.ii_torque_dir_b * delta_impulse;
                 limit = new_impulse * friction_coeff;
             }
 
@@ -610,9 +605,9 @@ fn step_gauss_seidel(@builtin(global_invocation_id) invocation_id: vec3<u32>, @b
                 var c = constraints[i].elements[k].tangent_part;
 
     #if DIM == 2
-                let dvel = dot(tangent_a, solver_vel1.linear) + gdot(c.gcross_a[0], solver_vel1.angular)
+                let dvel = dot(tangent_a, solver_vel1.linear) + gdot(c.torque_dir_a[0], solver_vel1.angular)
                     - dot(tangent_a, solver_vel2.linear)
-                    + gdot(c.gcross_b[0], solver_vel2.angular)
+                    + gdot(c.torque_dir_b[0], solver_vel2.angular)
                     + c.rhs[0];
                 let new_impulse = cfm_factor * clamp(c.impulse[0] - c.r[0] * dvel, -limit, limit);
                 let delta_impulse = new_impulse - c.impulse[0];
@@ -620,21 +615,21 @@ fn step_gauss_seidel(@builtin(global_invocation_id) invocation_id: vec3<u32>, @b
                 constraints[i].elements[k].tangent_part.impulse[0] = new_impulse;
 
                 solver_vel1.linear += tangent_a * im_a * delta_impulse;
-                solver_vel1.angular += c.gcross_a[0] * delta_impulse;
+                solver_vel1.angular += c.ii_torque_dir_a[0] * delta_impulse;
 
                 solver_vel2.linear += tangent_a * im_b * -delta_impulse;
-                solver_vel2.angular += c.gcross_b[0] * delta_impulse;
+                solver_vel2.angular += c.ii_torque_dir_b[0] * delta_impulse;
     #else
                 let tangents_a = array(tangent_a, cross(dir_a, tangent_a));
                 let dvel_0 = dot(tangents_a[0], solver_vel1.linear)
-                    + gdot(c.gcross_a[0], solver_vel1.angular)
+                    + gdot(c.torque_dir_a[0], solver_vel1.angular)
                     - dot(tangents_a[0], solver_vel2.linear)
-                    + gdot(c.gcross_b[0], solver_vel2.angular)
+                    + gdot(c.torque_dir_b[0], solver_vel2.angular)
                     + c.rhs[0];
                 let dvel_1 = dot(tangents_a[1], solver_vel1.linear)
-                    + gdot(c.gcross_a[1], solver_vel1.angular)
+                    + gdot(c.torque_dir_a[1], solver_vel1.angular)
                     - dot(tangents_a[1], solver_vel2.linear)
-                    + gdot(c.gcross_b[1], solver_vel2.angular)
+                    + gdot(c.torque_dir_b[1], solver_vel2.angular)
                     + c.rhs[1];
 
                 let dvel_00 = dvel_0 * dvel_0;
@@ -654,12 +649,12 @@ fn step_gauss_seidel(@builtin(global_invocation_id) invocation_id: vec3<u32>, @b
                 solver_vel1.linear +=
                     (tangents_a[0] * dlambda[0] + tangents_a[1] * dlambda[1]) * im_a;
                 solver_vel1.angular +=
-                    c.gcross_a[0] * dlambda[0] + c.gcross_a[1] * dlambda[1];
+                    c.ii_torque_dir_a[0] * dlambda[0] + c.ii_torque_dir_a[1] * dlambda[1];
 
                 solver_vel2.linear +=
                     (tangents_a[0] * -dlambda[0] + tangents_a[1] * -dlambda[1]) * im_b;
                 solver_vel2.angular +=
-                    c.gcross_b[0] * dlambda[0] + c.gcross_b[1] * dlambda[1];
+                    c.ii_torque_dir_b[0] * dlambda[0] + c.ii_torque_dir_b[1] * dlambda[1];
     #endif
             }
         }
@@ -674,8 +669,7 @@ fn integrate(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     let i = invocation_id.x;
 
     if i < num_colliders {
-        let angvel = mprops[i].inv_inertia_sqrt * solver_vels[i].angular;
-        let vels = Body::Velocity(solver_vels[i].linear, angvel);
+        let vels = Body::Velocity(solver_vels[i].linear, solver_vels[i].angular);
         poses[i] = Body::integrateVelocity(poses[i], vels, local_mprops[i].com, params.dt);
     }
 }
@@ -686,7 +680,7 @@ fn finalize(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
     if i < num_colliders {
         vels[i].linear = solver_vels[i].linear;
-        vels[i].angular = mprops[i].inv_inertia_sqrt * solver_vels[i].angular;
+        vels[i].angular = solver_vels[i].angular;
     }
 }
 
@@ -751,13 +745,15 @@ fn contact_to_constraint(out_id: u32, indexed_contact: Contact::IndexedManifold)
         //
         // Normal part:
         //
-        let gcross1 = mprops1.inv_inertia_sqrt * gcross(dp1, force_dir1);
-        let gcross2 = mprops2.inv_inertia_sqrt * gcross(dp2, -force_dir1);
+        let torque_dir1 = gcross(dp1, force_dir1);
+        let torque_dir2 = gcross(dp2, -force_dir1);
+        let ii_torque_dir1 = mprops1.inv_inertia * torque_dir1;
+        let ii_torque_dir2 = mprops2.inv_inertia * torque_dir2;
         let imsum = mprops1.inv_mass + mprops2.inv_mass;
         let projected_mass = inv(
             dot(force_dir1, imsum * force_dir1) +
-            gdot(gcross1, gcross1) +
-            gdot(gcross2, gcross2)
+            gdot(ii_torque_dir1, torque_dir1) +
+            gdot(ii_torque_dir2, torque_dir2)
         );
 
         // TODO: handle is_bouncy?
@@ -769,8 +765,10 @@ fn contact_to_constraint(out_id: u32, indexed_contact: Contact::IndexedManifold)
             -max_corrective_velocity, 0.0);
 
         constraint.elements[k].normal_part = Constraint::TwoBodyConstraintNormalPart(
-            gcross1,
-            gcross2,
+            torque_dir1,
+            ii_torque_dir1,
+            torque_dir2,
+            ii_torque_dir2,
             normal_rhs_wo_bias, // := rhs
             normal_rhs_wo_bias, // := rhs_wo_bias
             0.0, // := impulse
@@ -782,17 +780,21 @@ fn contact_to_constraint(out_id: u32, indexed_contact: Contact::IndexedManifold)
         // Tangent part:
         //
         for (var j = 0u; j < Constraint::SUB_LEN; j++) {
-            let gcross1 = mprops1.inv_inertia_sqrt * gcross(dp1, tangents1[j]);
-            let gcross2 = mprops2.inv_inertia_sqrt * gcross(dp2, -tangents1[j]);
+            let torque_dir1 = gcross(dp1, tangents1[j]);
+            let torque_dir2 = gcross(dp2, -tangents1[j]);
+            let ii_torque_dir1 = mprops1.inv_inertia * torque_dir1;
+            let ii_torque_dir2 = mprops2.inv_inertia * torque_dir2;
             let r = dot(tangents1[j], imsum * tangents1[j])
-                + gdot(gcross1, gcross1)
-                + gdot(gcross2, gcross2);
+                + gdot(ii_torque_dir1, torque_dir1)
+                + gdot(ii_torque_dir2, torque_dir2);
 //            let tangent_velocity = vec3(0.0);
 //            let rhs_wo_bias = dot(tangent_velocity, tangents1[j]);
             let rhs_wo_bias = 0.0;
 
-            constraint.elements[k].tangent_part.gcross_a[j] = gcross1;
-            constraint.elements[k].tangent_part.gcross_b[j] = gcross2;
+            constraint.elements[k].tangent_part.torque_dir_a[j] = torque_dir1;
+            constraint.elements[k].tangent_part.ii_torque_dir_a[j] = ii_torque_dir1;
+            constraint.elements[k].tangent_part.torque_dir_b[j] = torque_dir2;
+            constraint.elements[k].tangent_part.ii_torque_dir_b[j] = ii_torque_dir2;
             constraint.elements[k].tangent_part.rhs[j] = rhs_wo_bias;
             constraint.elements[k].tangent_part.rhs_wo_bias[j] = rhs_wo_bias;
     #if DIM == 2
@@ -813,8 +815,8 @@ fn contact_to_constraint(out_id: u32, indexed_contact: Contact::IndexedManifold)
 
     #if DIM == 3
         constraint.elements[k].tangent_part.r[2] = 2.0
-            * (dot(constraint.elements[k].tangent_part.gcross_a[0], constraint.elements[k].tangent_part.gcross_a[1])
-                + dot(constraint.elements[k].tangent_part.gcross_b[0], constraint.elements[k].tangent_part.gcross_b[1]));
+            * (dot(constraint.elements[k].tangent_part.torque_dir_a[0], constraint.elements[k].tangent_part.ii_torque_dir_a[1])
+                + dot(constraint.elements[k].tangent_part.torque_dir_b[0], constraint.elements[k].tangent_part.ii_torque_dir_b[1]));
     #endif
 
         // Builder.

@@ -7,8 +7,9 @@
 use crate::dynamics::body::{GpuLocalMassProperties, GpuVelocity, GpuWorldMassProperties};
 use crate::dynamics::{
     prefix_sum::{PrefixSumWorkspace, WgPrefixSum},
-    ColoringArgs, GpuSimParams, GpuTwoBodyConstraint, GpuTwoBodyConstraintBuilder, SolverArgs,
-    WarmstartArgs, WgColoring, WgMpropsUpdate, WgSolver, WgWarmstart,
+    ColoringArgs, GpuImpulseJointSet, GpuSimParams, GpuTwoBodyConstraint,
+    GpuTwoBodyConstraintBuilder, JointSolverArgs, SolverArgs, WarmstartArgs, WgColoring,
+    WgJointSolver, WgMpropsUpdate, WgSolver, WgWarmstart,
 };
 use crate::wgparry::{
     broad_phase::{Lbvh, WgBruteForceBroadPhase, WgNarrowPhase},
@@ -17,7 +18,7 @@ use crate::wgparry::{
 };
 use naga_oil::compose::ComposerError;
 use nalgebra::Vector4;
-use rapier::dynamics::RigidBodySet;
+use rapier::dynamics::{ImpulseJointSet, RigidBodySet};
 use rapier::geometry::ColliderSet;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -113,6 +114,7 @@ pub struct GpuPhysicsState {
     uncolored: GpuScalar<u32>,
     uncolored_staging: GpuScalar<u32>,
     lbvh: LbvhState,
+    joints: GpuImpulseJointSet,
 
     prefix_sum_workspace: PrefixSumWorkspace,
 
@@ -150,12 +152,14 @@ impl GpuPhysicsState {
         device: &Device,
         bodies: &RigidBodySet,
         colliders: &ColliderSet,
+        impulse_joints: &ImpulseJointSet,
         use_jacobi: bool,
     ) -> Self {
         let mut rb_poses = Vec::new();
         let mut rb_local_mprops = Vec::new();
         let mut rb_mprops = Vec::new();
         let mut shapes = Vec::new();
+        let mut body_ids = HashMap::new();
 
         for (_, co) in colliders.iter() {
             let parent = co.parent().map(|h| &bodies[h]);
@@ -175,9 +179,14 @@ impl GpuPhysicsState {
             };
             if parent.map(|b| !b.is_dynamic()).unwrap_or(true) {
                 local_mprops.inv_mass.fill(0.0);
-                local_mprops.inv_principal_inertia_sqrt = nalgebra::zero();
+                local_mprops.inv_principal_inertia = nalgebra::zero();
                 mprops.inv_mass.fill(0.0);
-                mprops.inv_inertia_sqrt = nalgebra::zero();
+                mprops.inv_inertia = nalgebra::zero();
+            }
+
+            if let Some(h) = co.parent() {
+                let id = rb_poses.len();
+                body_ids.insert(h, id as u32);
             }
 
             rb_local_mprops.push(local_mprops);
@@ -189,6 +198,8 @@ impl GpuPhysicsState {
             #[cfg(feature = "dim3")]
             rb_poses.push(GpuSim::from_isometry(*co.position(), 1.0));
         }
+
+        let joints = GpuImpulseJointSet::from_rapier(device, impulse_joints, &body_ids);
 
         let num_bodies = rb_poses.len();
         let rb_vels = vec![GpuVelocity::default(); num_bodies];
@@ -246,6 +257,7 @@ impl GpuPhysicsState {
             solver_vels: GpuVector::encase(device, &rb_vels, storage),
             solver_vels_out: GpuVector::encase(device, &rb_vels, storage),
             solver_vels_inc: GpuVector::encase(device, &rb_vels, storage),
+            joints,
             local_mprops: GpuVector::encase(device, &rb_local_mprops, storage),
             mprops: GpuVector::encase(device, &rb_mprops, storage),
             poses: GpuVector::init(
@@ -307,6 +319,11 @@ impl GpuPhysicsState {
         &self.poses
     }
 
+    /// The set of joints part of the simulation.
+    pub fn joints(&self) -> &GpuImpulseJointSet {
+        &self.joints
+    }
+
     /// Returns a reference to the GPU buffer containing collision shapes.
     ///
     /// Each shape corresponds to one rigid body in the simulation.
@@ -333,6 +350,7 @@ pub struct GpuPhysicsPipeline {
     broad_phase: WgBruteForceBroadPhase,
     narrow_phase: WgNarrowPhase,
     solver: WgSolver,
+    joint_solver: WgJointSolver,
     prefix_sum: WgPrefixSum,
     lbvh: Lbvh,
     coloring: WgColoring,
@@ -359,6 +377,7 @@ impl GpuPhysicsPipeline {
             broad_phase: WgBruteForceBroadPhase::from_device(device)?,
             narrow_phase: WgNarrowPhase::from_device(device)?,
             solver: WgSolver::from_device(device)?,
+            joint_solver: WgJointSolver::from_device(device)?,
             prefix_sum: WgPrefixSum::from_device(device)?,
             lbvh: Lbvh::from_device(device)?,
             coloring: WgColoring::from_device(device)?,
@@ -544,6 +563,14 @@ impl GpuPhysicsPipeline {
             prefix_sum: &self.prefix_sum,
             num_colors: 0,
         };
+        let joint_solver_args = JointSolverArgs {
+            sim_params: &state.sim_params,
+            poses: &state.poses,
+            mprops: &state.mprops,
+            local_mprops: &state.local_mprops,
+            joints: &state.joints,
+            solver_vels: &state.solver_vels,
+        };
 
         self.solver.prepare(
             gpu.device(),
@@ -613,8 +640,14 @@ impl GpuPhysicsPipeline {
 
         let mut encoder = gpu.device().create_command_encoder(&Default::default());
         let mut pass = encoder.compute_pass("solve", timestamps);
-        self.solver
-            .solve_tgs(gpu.device(), &mut pass, solver_args, use_jacobi);
+        self.solver.solve_tgs(
+            gpu.device(),
+            &mut pass,
+            &self.joint_solver,
+            solver_args,
+            joint_solver_args,
+            use_jacobi,
+        );
         drop(pass);
         gpu.queue().submit(Some(encoder.finish()));
         // println!("Simulation time: {}.", t0.elapsed().as_secs_f32() * 1000.0);

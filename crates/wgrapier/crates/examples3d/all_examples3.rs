@@ -8,6 +8,10 @@ use wgrapier_testbed3d::{SimulationState, Testbed};
 mod balls3;
 mod boxes3;
 mod boxes_and_balls3;
+mod joint_ball3;
+mod joint_fixed3;
+mod joint_prismatic3;
+mod joint_revolute3;
 mod keva3;
 mod many_pyramids3;
 mod pyramid3;
@@ -41,6 +45,10 @@ pub fn demo_builders() -> Vec<(&'static str, fn() -> SimulationState)> {
         ("Pyramid", pyramid3::init_world),
         ("Many pyramids", many_pyramids3::init_world),
         ("Keva tower", keva3::init_world),
+        ("Joints (Spherical)", joint_ball3::init_world),
+        ("Joints (Fixed)", joint_fixed3::init_world),
+        ("Joints (Prismatic)", joint_prismatic3::init_world),
+        ("Joints (Revolute)", joint_revolute3::init_world),
     ];
 
     // Lexicographic sort, with stress tests moved at the end of the list.
