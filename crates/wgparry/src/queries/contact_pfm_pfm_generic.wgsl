@@ -33,9 +33,9 @@ fn contact_support_map_support_map(
     }
 
     let cso_point = Gjk::cso_point_from_shapes(pose12, g1, g2, dir);
-    let simplex = VoronoiSimplex::init(cso_point);
+    var simplex = VoronoiSimplex::init(cso_point);
 
-    let cpts = Gjk::closest_points(pose12, g1, g2, prediction, true, simplex);
+    let cpts = Gjk::closest_points(pose12, g1, g2, prediction, true, &simplex);
     if cpts.status != Gjk::INTERSECTION {
         return cpts;
     }

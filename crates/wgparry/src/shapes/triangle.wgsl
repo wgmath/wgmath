@@ -141,7 +141,7 @@ fn project_local_point_and_get_location(shape: Triangle, pt: Vector, solid: bool
     if ac_cp >= 0.0 && ab_cp <= ac_cp {
         // Voronoï region of `c`.
         let inside = is_proj_inside(pt, c);
-        return Proj::vertex(b, 2, inside);
+        return Proj::vertex(c, 2, inside);
     }
 
     let bc = c - b;

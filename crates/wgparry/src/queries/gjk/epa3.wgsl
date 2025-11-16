@@ -9,15 +9,20 @@
 #import wgparry::cuboid as ShapeA
 #import wgparry::cuboid as ShapeB
 
-const MAX_EPA_LEN: u32 = 64; // TODO: find the rigth balance.
+// TODO: find the ideal values.
+const MAX_VERTICES_LEN: u32 = 16;
+const MAX_FACES_LEN: u32 = 32;
+const MAX_SILHOUETTE_LEN: u32 = 16;
+const MAX_HEAP_LEN: u32 = 32;
+const MAX_STACK_LEN: u32 = 16;
 
-var<private> vertices: array<CsoPoint::CsoPoint, MAX_EPA_LEN>;
+var<private> vertices: array<CsoPoint::CsoPoint, MAX_VERTICES_LEN>;
 var<private> vertices_len: u32;
-var<private> faces: array<Face, MAX_EPA_LEN>;
+var<private> faces: array<Face, MAX_FACES_LEN>;
 var<private> faces_len: u32;
-var<private> silhouette: array<SilhouetteEdge, MAX_EPA_LEN>;
+var<private> silhouette: array<SilhouetteEdge, MAX_SILHOUETTE_LEN>;
 var<private> silhouette_len: u32;
-var<private> heap: array<FaceId, MAX_EPA_LEN>; // TODO: BinaryHeap<FaceId>
+var<private> heap: array<FaceId, MAX_HEAP_LEN>; // TODO: BinaryHeap<FaceId>
 var<private> heap_len: u32;
 
 fn heap_best_index() -> u32 {
@@ -53,7 +58,7 @@ fn heap_pop() -> FaceId {
 
 // If it runs out of memory, returns `false`.
 fn heap_push(elt: FaceId) -> bool {
-    if heap_len != MAX_EPA_LEN {
+    if heap_len != MAX_HEAP_LEN {
         heap[heap_len] = elt;
         heap_len += 1;
         return true;
@@ -355,7 +360,7 @@ fn closest_points(
         let cso_point = Gjk::cso_point_from_shapes(pos12, g1, g2, face.normal);
         let support_point_id = vertices_len;
 
-        if vertices_len != MAX_EPA_LEN {
+        if vertices_len != MAX_VERTICES_LEN {
             vertices[vertices_len] = cso_point;
             vertices_len += 1;
         } else {
@@ -421,7 +426,7 @@ fn closest_points(
 
                 faces[edge.face_id].adj[(edge.opp_pt_id + 1) % 3] = new_face_id;
 
-                if faces_len != MAX_EPA_LEN {
+                if faces_len != MAX_FACES_LEN {
                     faces[faces_len] = new_face.face;
                     faces_len += 1;
                 } else {
@@ -478,7 +483,7 @@ fn closest_points(
 
 // Returns `false` if running out of memory.
 fn compute_silhouette(point: u32, id: u32, opp_pt_id: u32) -> bool {
-    var stack = array<SilhouetteEdge, MAX_EPA_LEN>();
+    var stack = array<SilhouetteEdge, MAX_STACK_LEN>();
     var stack_len = 1u;
     stack[0u] = SilhouetteEdge(id, opp_pt_id);
 
@@ -488,7 +493,7 @@ fn compute_silhouette(point: u32, id: u32, opp_pt_id: u32) -> bool {
 
         if !faces[edge.face_id].deleted {
             if !can_be_seen_by(faces[edge.face_id], point, edge.opp_pt_id) {
-                if silhouette_len < MAX_EPA_LEN {
+                if silhouette_len < MAX_STACK_LEN {
                     silhouette[silhouette_len] = SilhouetteEdge(edge.face_id, edge.opp_pt_id);
                     silhouette_len += 1u;
                 } else {
@@ -511,7 +516,7 @@ fn compute_silhouette(point: u32, id: u32, opp_pt_id: u32) -> bool {
                 stack[stack_len] = SilhouetteEdge(adj2, adj_opp_pt_id2);
                 stack_len += 1u;
 
-                if stack_len < MAX_EPA_LEN {
+                if stack_len < MAX_STACK_LEN {
                     stack[stack_len] = SilhouetteEdge(adj1, adj_opp_pt_id1);
                     stack_len += 1u;
                 } else {

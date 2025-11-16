@@ -47,14 +47,14 @@ fn closest_points(
     g2: ShapeB::Cuboid,
     max_dist: f32,
     exact_dist: bool,
-    simplex: VoronoiSimplex::VoronoiSimplex,
+    simplex: ptr<function, VoronoiSimplex::VoronoiSimplex>,
 ) -> GjkResult {
     let _eps = CsoPoint::FLT_EPS;
     let _eps_tol: f32 = CsoPoint::EPS_TOL;
     let _eps_rel: f32 = sqrt(_eps_tol);
 
     // TODO: reset the simplex if it is empty?
-    var proj = VoronoiSimplex::project_origin_and_reduce(simplex);
+    var proj = VoronoiSimplex::project_origin_and_reduce(*simplex);
 
     var old_dir = Vector();
     let proj_len = length(proj.point);
@@ -78,6 +78,7 @@ fn closest_points(
             max_bound = proj_len;
         } else {
             // The origin is on the simplex.
+            *simplex = proj.simplex;
             return gjk_result_intersection();
         }
 
@@ -132,6 +133,7 @@ fn closest_points(
                     return gjk_result_proximity(old_dir);
                 }
             } else {
+                *simplex = proj.simplex;
                 return gjk_result_intersection(); // Point inside of the cso.
             }
         }
