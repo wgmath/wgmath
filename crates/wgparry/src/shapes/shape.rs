@@ -18,7 +18,7 @@
 //! The tag is stored as the `w` component of the first vector using bit-casting to preserve
 //! the `f32` representation while encoding a `u32` shape type identifier.
 
-use crate::queries::{WgProjection, WgRay};
+use crate::queries::{WgPolygonalFeature, WgProjection, WgRay};
 use crate::shapes::{WgBall, WgCapsule, WgCuboid};
 use crate::{dim_shader_defs, substitute_aliases};
 use na::{vector, Vector4};
@@ -403,7 +403,8 @@ struct WgCylinder;
         WgCapsule,
         WgCone,
         WgCuboid,
-        WgCylinder
+        WgCylinder,
+        WgPolygonalFeature,
     ),
     src = "shape.wgsl",
     src_fn = "substitute_aliases",

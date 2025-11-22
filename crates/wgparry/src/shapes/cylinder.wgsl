@@ -155,12 +155,6 @@ fn projectPointOnBoundary(cylinder: Cylinder, pose: Transform, pt: Vector) -> Pr
     return result;
 }
 
-fn support_point(cylinder: Cylinder, pose: Transform, axis: Vector) -> Vector {
-    let local_axis = Pose::invMulVec(pose, axis);
-    let local_pt = local_support_point(cylinder, local_axis);
-    return Pose::mulPt(pose, local_pt);
-}
-
 fn local_support_point(cylinder: Cylinder, dir: Vector) -> Vector {
     var vres = dir;
     vres.y = 0.0;

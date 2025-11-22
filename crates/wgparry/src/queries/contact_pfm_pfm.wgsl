@@ -1,11 +1,10 @@
-#define_import_path wgparry::queries::contact_pfm_pfm_generic
+#define_import_path wgparry::queries::contact_pfm_pfm
 
 #import wgparry::gjk::voronoi_simplex as VoronoiSimplex
 #import wgparry::gjk::gjk as Gjk
 #import wgparry::gjk::cso_point as CsoPoint
 #import wgparry::epa as Epa
-#import wgparry::cuboid as ShapeA
-#import wgparry::cuboid as ShapeB
+#import wgparry::shape as Shape
 #import wgparry::polygonal_feature as PolygonalFeature
 #import wgparry::contact_manifold as ContactManifold
 
@@ -20,8 +19,8 @@
 
 fn contact_support_map_support_map(
     pose12: Transform,
-    g1: ShapeA::Cuboid,
-    g2: ShapeB::Cuboid,
+    g1: Shape::Shape,
+    g2: Shape::Shape,
     prediction: f32,
 ) -> Gjk::GjkResult {
     var dir = pose12.translation_scale.xyz;
@@ -52,9 +51,9 @@ fn contact_support_map_support_map(
 
 fn contact_manifold_pfm_pfm(
     pose12: Transform,
-    pfm1: ShapeA::Cuboid,
+    pfm1: Shape::Shape,
     border_radius1: f32,
-    pfm2: ShapeB::Cuboid,
+    pfm2: Shape::Shape,
     border_radius2: f32,
     prediction: f32,
 ) -> ContactManifold::ContactManifold {
@@ -74,8 +73,8 @@ fn contact_manifold_pfm_pfm(
             var local_n2 = Pose::invMulUnitVec(pose12, -local_n1);
             let dist = dot(p2_1 - p1, local_n1);
 
-            let feature1 = ShapeA::support_face(pfm1, local_n1);
-            let feature2 = ShapeB::support_face(pfm2, local_n2);
+            let feature1 = Shape::support_face(pfm1, local_n1);
+            let feature2 = Shape::support_face(pfm2, local_n2);
             var manifold = PolygonalFeature::contacts(
                 pose12,
                 Pose::inv(pose12),

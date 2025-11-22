@@ -10,8 +10,7 @@
 
 #import wgparry::gjk::voronoi_simplex as VoronoiSimplex
 #import wgparry::gjk::cso_point as CsoPoint
-#import wgparry::cuboid as ShapeA
-#import wgparry::cuboid as ShapeB
+#import wgparry::shape as Shape
 
 const INTERSECTION: u32 = 0;
 const CLOSEST_POINTS: u32 = 1;
@@ -43,8 +42,8 @@ fn gjk_result_no_intersection(dir: Vector) -> GjkResult {
 
 fn closest_points(
     pose12: Transform,
-    g1: ShapeA::Cuboid,
-    g2: ShapeB::Cuboid,
+    g1: Shape::Shape,
+    g2: Shape::Shape,
     max_dist: f32,
     exact_dist: bool,
     simplex: ptr<function, VoronoiSimplex::VoronoiSimplex>,
@@ -171,8 +170,8 @@ fn result(simplex: VoronoiSimplex::VoronoiSimplex, prev: bool) -> array<Vector, 
 }
 
 /// Computes the support point of the CSO of `g1` and `g2` toward the direction `dir`.
-fn cso_point_from_shapes(pos12: Transform, g1: ShapeA::Cuboid, g2: ShapeB::Cuboid, dir: Vector) -> CsoPoint::CsoPoint {
-    let sp1 = ShapeA::local_support_point(g1, dir);
-    let sp2 = ShapeB::support_point(g2, pos12, -dir);
+fn cso_point_from_shapes(pos12: Transform, g1: Shape::Shape, g2: Shape::Shape, dir: Vector) -> CsoPoint::CsoPoint {
+    let sp1 = Shape::local_support_point(g1, dir);
+    let sp2 = Shape::support_point(g2, pos12, -dir);
     return CsoPoint::from_points(sp1, sp2);
 }

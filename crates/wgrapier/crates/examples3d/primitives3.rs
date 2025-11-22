@@ -4,7 +4,7 @@ use wgrapier_testbed3d::SimulationState;
 
 pub fn init_world() -> SimulationState {
     const NXZ: isize = 20;
-    const NY: isize = 1; //40;
+    const NY: isize = 40;
 
     let mut bodies = RigidBodySet::default();
     let mut colliders = ColliderSet::default();

@@ -82,22 +82,16 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
                         manifold = Contact::ball_cuboid(pose12, shape1, shape2);
                     }
                     case Shape::SHAPE_TYPE_CAPSULE: {
-                        continue;
                     }
                     case Shape::SHAPE_TYPE_CONE: {
-                        continue;
                     }
                     case Shape::SHAPE_TYPE_CYLINDER: {
-                        continue;
                     }
                     case Shape::SHAPE_TYPE_POLYLINE: {
-                        continue;
                     }
                     case Shape::SHAPE_TYPE_TRIMESH: {
-                        continue;
                     }
                     default: {
-                        continue;
                     }
                 }
             }
@@ -113,185 +107,18 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
                         let shape2 = Shape::to_cuboid(shapes[pair.y]);
                         manifold = Contact::cuboid_cuboid(pose12, shape1, shape2, prediction);
                     }
-                    case Shape::SHAPE_TYPE_CAPSULE: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_CONE: {
-//                        let shape1 = Shape::to_cuboid(shapes[pair.x]);
-//                        let shape2 = Shape::to_cone(shapes[pair.y]);
-//                        manifold = Contact::cuboid_cone(pose12, shape1, shape2, prediction);
-                    }
-                    case Shape::SHAPE_TYPE_CYLINDER: {
-                        let shape1 = Shape::to_cuboid(shapes[pair.x]);
-                        let shape2 = Shape::to_cylinder(shapes[pair.y]);
-                        manifold = Contact::cuboid_cylinder(pose12, shape1, shape2, prediction);
-                    }
-                    case Shape::SHAPE_TYPE_POLYLINE: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_TRIMESH: {
-                        continue;
-                    }
                     default: {
-                        continue;
-                    }
-                }
-            }
-            case Shape::SHAPE_TYPE_CAPSULE: {
-                switch shape_ty2 {
-                    case Shape::SHAPE_TYPE_BALL: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_CUBOID: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_CAPSULE: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_CONE: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_CYLINDER: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_POLYLINE: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_TRIMESH: {
-                        continue;
-                    }
-                    default: {
-                        continue;
-                    }
-                }
-            }
-            case Shape::SHAPE_TYPE_CONE: {
-                switch shape_ty2 {
-                    case Shape::SHAPE_TYPE_BALL: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_CUBOID: {
-//                        let shape1 = Shape::to_cone(shapes[pair.x]);
-//                        let shape2 = Shape::to_cuboid(shapes[pair.y]);
-//                        manifold = Contact::cone_cuboid(pose12, shape1, shape2, prediction);
-                    }
-                    case Shape::SHAPE_TYPE_CAPSULE: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_CONE: {
-//                        let shape1 = Shape::to_cone(shapes[pair.x]);
-//                        let shape2 = Shape::to_cone(shapes[pair.y]);
-//                        manifold = Contact::cone_cone(pose12, shape1, shape2, prediction);
-                    }
-                    case Shape::SHAPE_TYPE_CYLINDER: {
-//                        let shape1 = Shape::to_cone(shapes[pair.x]);
-//                        let shape2 = Shape::to_cylinder(shapes[pair.y]);
-//                        manifold = Contact::cone_cylinder(pose12, shape1, shape2, prediction);
-                    }
-                    case Shape::SHAPE_TYPE_POLYLINE: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_TRIMESH: {
-                        continue;
-                    }
-                    default: {
-                        continue;
-                    }
-                }
-            }
-            case Shape::SHAPE_TYPE_CYLINDER: {
-                switch shape_ty2 {
-                    case Shape::SHAPE_TYPE_BALL: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_CUBOID: {
-                        let shape1 = Shape::to_cylinder(shapes[pair.x]);
-                        let shape2 = Shape::to_cuboid(shapes[pair.y]);
-                        manifold = Contact::cylinder_cuboid(pose12, shape1, shape2, prediction);
-                    }
-                    case Shape::SHAPE_TYPE_CAPSULE: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_CONE: {
-//                        let shape1 = Shape::to_cylinder(shapes[pair.x]);
-//                        let shape2 = Shape::to_cone(shapes[pair.y]);
-//                        manifold = Contact::cylinder_cone(pose12, shape1, shape2, prediction);
-                    }
-                    case Shape::SHAPE_TYPE_CYLINDER: {
-                        let shape1 = Shape::to_cylinder(shapes[pair.x]);
-                        let shape2 = Shape::to_cylinder(shapes[pair.y]);
-                        manifold = Contact::cylinder_cylinder(pose12, shape1, shape2, prediction);
-                    }
-                    case Shape::SHAPE_TYPE_POLYLINE: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_TRIMESH: {
-                        continue;
-                    }
-                    default: {
-                        continue;
-                    }
-                }
-            }
-            case Shape::SHAPE_TYPE_POLYLINE: {
-                switch shape_ty2 {
-                    case Shape::SHAPE_TYPE_BALL: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_CUBOID: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_CAPSULE: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_CONE: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_CYLINDER: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_POLYLINE: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_TRIMESH: {
-                        continue;
-                    }
-                    default: {
-                        continue;
-                    }
-                }
-            }
-            case Shape::SHAPE_TYPE_TRIMESH: {
-                switch shape_ty2 {
-                    case Shape::SHAPE_TYPE_BALL: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_CUBOID: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_CAPSULE: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_CONE: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_CYLINDER: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_POLYLINE: {
-                        continue;
-                    }
-                    case Shape::SHAPE_TYPE_TRIMESH: {
-                        continue;
-                    }
-                    default: {
-                        continue;
                     }
                 }
             }
             default: {
-                continue;
             }
+        }
+
+        if Shape::is_pfm(shapes[pair.x]) && Shape::is_pfm(shapes[pair.y]) {
+            manifold = Contact::pfm_pfm(pose12, shapes[pair.x], shapes[pair.y], prediction);
+        } else {
+            continue;
         }
 
         if manifold.len > 0 && manifold.points_a[0].dist < prediction {

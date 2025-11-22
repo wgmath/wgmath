@@ -6,8 +6,7 @@
 #import wgparry::gjk::voronoi_simplex as VoronoiSimplex
 #import wgparry::triangle as Triangle
 #import wgparry::projection as Proj
-#import wgparry::cuboid as ShapeA
-#import wgparry::cuboid as ShapeB
+#import wgparry::shape as Shape
 
 // TODO: find the ideal values.
 const MAX_VERTICES_LEN: u32 = 32;
@@ -204,8 +203,8 @@ fn none() -> EpaResult {
 
 fn closest_points(
     pos12: Transform,
-    g1: ShapeA::Cuboid,
-    g2: ShapeB::Cuboid,
+    g1: Shape::Shape,
+    g2: Shape::Shape,
     simplex: VoronoiSimplex::VoronoiSimplex,
 ) -> EpaResult {
     let _eps = CsoPoint::FLT_EPS;

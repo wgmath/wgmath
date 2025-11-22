@@ -154,13 +154,6 @@ fn projectPointOnBoundary(cone: Cone, pose: Transform, pt: Vector) -> Proj::Proj
     return result;
 }
 
-
-fn support_point(cone: Cone, pose: Transform, axis: Vector) -> Vector {
-    let local_axis = Pose::invMulVec(pose, axis);
-    let local_pt = local_support_point(cone, local_axis);
-    return Pose::mulPt(pose, local_pt);
-}
-
 fn local_support_point(cone: Cone, dir: Vector) -> Vector {
     var vres = dir;
     vres.y = 0.0;

@@ -25,6 +25,7 @@
 #import wgparry::segment as Seg;
 #import wgparry::cylinder as Cyl;
 #import wgparry::cone as Con;
+#import wgparry::polygonal_feature as Feat
 
 #define_import_path wgparry::shape
 
@@ -207,4 +208,61 @@ fn projectPointOnBoundary(shape: Shape, pose: Transform, pt: Vector) -> Proj::Pr
     }
 #endif
     return Proj::ProjectionResult(pt, false);
+}
+
+fn support_point(shape: Shape, pose: Transform, axis: Vector) -> Vector {
+    let local_axis = Pose::invMulVec(pose, axis);
+    let local_pt = local_support_point(shape, local_axis);
+    return Pose::mulPt(pose, local_pt);
+}
+
+fn local_support_point(shape: Shape, dir: Vector) -> Vector {
+    let ty = shape_type(shape);
+//    if ty == SHAPE_TYPE_BALL {
+//        return Bal::local_support_point(to_ball(shape), dir);
+//    }
+    if ty == SHAPE_TYPE_CUBOID {
+        return Cub::local_support_point(to_cuboid(shape), dir);
+    }
+//    if ty == SHAPE_TYPE_CAPSULE {
+//        return Cap::local_support_point(to_capsule(shape), dir);
+//    }
+#if DIM == 3
+    if ty == SHAPE_TYPE_CONE {
+        return Con::local_support_point(to_cone(shape), dir);
+    }
+    if ty == SHAPE_TYPE_CYLINDER {
+        return Cyl::local_support_point(to_cylinder(shape), dir);
+    }
+#endif
+    return Vector();
+}
+
+fn support_face(shape: Shape, dir: Vector) -> Feat::PolygonalFeature {
+    let ty = shape_type(shape);
+//    if ty == SHAPE_TYPE_BALL {
+//        return Bal::support_face(to_ball(shape), dir);
+//    }
+    if ty == SHAPE_TYPE_CUBOID {
+        return Cub::support_face(to_cuboid(shape), dir);
+    }
+//    if ty == SHAPE_TYPE_CAPSULE {
+//        return Cap::support_face(to_capsule(shape), dir);
+//    }
+#if DIM == 3
+    if ty == SHAPE_TYPE_CONE {
+        return Con::support_face(to_cone(shape), dir);
+    }
+    if ty == SHAPE_TYPE_CYLINDER {
+        return Cyl::support_face(to_cylinder(shape), dir);
+    }
+#endif
+    return Feat::PolygonalFeature();
+}
+
+fn is_pfm(shape: Shape) -> bool {
+    let ty = shape_type(shape);
+    return ty == SHAPE_TYPE_BALL || ty == SHAPE_TYPE_CUBOID ||
+        ty == SHAPE_TYPE_CAPSULE || ty == SHAPE_TYPE_CONE ||
+        ty == SHAPE_TYPE_CYLINDER;
 }
