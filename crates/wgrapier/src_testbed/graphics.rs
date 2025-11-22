@@ -156,11 +156,30 @@ pub async fn setup_graphics(window: &mut Window, phys: &SimulationState) -> Rend
                         data: vec![],
                     }
                 });
-                let cyl = shape.as_cone().unwrap();
+                let c = shape.as_cone().unwrap();
                 instanced_node.entries.push(InstancedNodeEntry {
                     index: i,
                     color: [color.x, color.y, color.z, 1.0],
-                    scale: [cyl.radius, cyl.half_height * 2.0, cyl.radius],
+                    scale: [c.radius, c.half_height * 2.0, c.radius],
+                })
+            }
+            ShapeType::Capsule => {
+                let instanced_node = instances.entry(ShapeType::Capsule).or_insert_with(|| {
+                    #[cfg(feature = "dim2")]
+                    let node = window.add_planar_capsule(0.5, 1.0);
+                    #[cfg(feature = "dim3")]
+                    let node = window.add_capsule(0.5, 1.0);
+                    InstancedNode {
+                        node,
+                        entries: vec![],
+                        data: vec![],
+                    }
+                });
+                let c = shape.as_capsule().unwrap();
+                instanced_node.entries.push(InstancedNodeEntry {
+                    index: i,
+                    color: [color.x, color.y, color.z, 1.0],
+                    scale: [c.radius * 2.0, c.segment.length(), c.radius * 2.0],
                 })
             }
             _ => todo!(),

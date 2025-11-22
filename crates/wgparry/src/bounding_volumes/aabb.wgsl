@@ -56,8 +56,12 @@ fn from_shape(pose: Transform, shape: Shape::Shape) -> Aabb {
 
     if ty == Shape::SHAPE_TYPE_CAPSULE {
         let capsule = Shape::to_capsule(shape);
-        // FIXME
-        return Aabb();
+        let aa = Pose::mulPt(pose, capsule.segment.a);
+        let bb = Pose::mulPt(pose, capsule.segment.b);
+        return Aabb(
+            min(aa, bb) - Vector(capsule.radius),
+            max(aa, bb) + Vector(capsule.radius),
+        );
     }
 
 #if DIM == 3

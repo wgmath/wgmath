@@ -18,15 +18,17 @@ pub fn init_world() -> SimulationState {
         for i in -max_ik..max_ik {
             for k in -max_ik..max_ik {
                 let x = i as f32 * 1.1 + j as f32 * 0.01;
-                let y = j as f32 * 1.1 + 1.0;
+                let y = j as f32 * 1.6 + 1.0;
                 let z = k as f32 * 1.1 + j as f32 * 0.01;
                 let pos = Vector3::new(x, y, z);
                 let body = bodies.insert(RigidBodyBuilder::dynamic().translation(pos));
 
-                let collider = match j % 3 {
+                let collider = match j % 5 {
                     0 => ColliderBuilder::cylinder(0.5, 0.5),
                     1 => ColliderBuilder::cuboid(0.5, 0.5, 0.5),
-                    _ => ColliderBuilder::cone(0.5, 0.5),
+                    2 => ColliderBuilder::cone(0.5, 0.5),
+                    3 => ColliderBuilder::capsule_y(0.5, 0.5),
+                    _ => ColliderBuilder::ball(0.5),
                 };
 
                 colliders.insert_with_parent(collider, body, &mut bodies);

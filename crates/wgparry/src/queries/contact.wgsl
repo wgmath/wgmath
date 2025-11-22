@@ -73,8 +73,7 @@ fn ball_ball(pose12: Transform, ball1: Ball::Ball, ball2: Ball::Ball) -> Manifol
     return Manifold::single_point(point1, distance - sum_radius, normal1);
 }
 
-// TODO: generalize to all convex shapes implementing point projection.
-fn cuboid_ball(pose12: Transform, cuboid1: Cuboid::Cuboid, ball2: Ball::Ball) -> Manifold::ContactManifold {
+fn convex_ball(pose12: Transform, cuboid1: Shape::Shape, ball2: Ball::Ball) -> Manifold::ContactManifold {
 #if DIM == 2
     let center2_1 = pose12.translation;
     var y = vec2(0.0, 1.0);
@@ -83,7 +82,7 @@ fn cuboid_ball(pose12: Transform, cuboid1: Cuboid::Cuboid, ball2: Ball::Ball) ->
     var y = vec3(0.0, 1.0, 0.0);
 #endif
 
-    let proj = Cuboid::projectLocalPointOnBoundary(cuboid1, center2_1);
+    let proj = Shape::projectLocalPointOnBoundary(cuboid1, center2_1);
     let proj_vec = center2_1 - proj.point;
     var dist = length(proj_vec);
     var normal1 = select(y, proj_vec / dist, dist != 0.0);
@@ -96,17 +95,17 @@ fn cuboid_ball(pose12: Transform, cuboid1: Cuboid::Cuboid, ball2: Ball::Ball) ->
     return Manifold::single_point(proj.point, dist - ball2.radius, normal1);
 }
 
-fn ball_cuboid(pose12: Transform, ball1: Ball::Ball, cuboid2: Cuboid::Cuboid) -> Manifold::ContactManifold {
+fn ball_convex(pose12: Transform, ball1: Ball::Ball, cuboid2: Shape::Shape) -> Manifold::ContactManifold {
     let pose21 = Pose::inv(pose12);
-    var result = cuboid_ball(pose21, cuboid2, ball1);
+    var result = convex_ball(pose21, cuboid2, ball1);
     let normal1 = -Pose::mulUnitVec(pose12, result.normal_a);
     result.points_a[0].pt = normal1 * ball1.radius;
     result.normal_a = normal1;
     return result;
 }
 
-fn pfm_pfm(pose12: Transform, cuboid1: Shape::Shape, cuboid2: Shape::Shape, prediction: f32) -> Manifold::ContactManifold {
-    return PfmPfm::contact_manifold_pfm_pfm(pose12, cuboid1, 0.0, cuboid2, 0.0, prediction);
+fn pfm_pfm(pose12: Transform, cuboid1: Shape::Shape, thickness1: f32, cuboid2: Shape::Shape, thickness2: f32, prediction: f32) -> Manifold::ContactManifold {
+    return PfmPfm::contact_manifold_pfm_pfm(pose12, cuboid1, thickness1, cuboid2, thickness2, prediction);
 }
 
 fn cuboid_cuboid(pose12: Transform, cuboid1: Cuboid::Cuboid, cuboid2: Cuboid::Cuboid, prediction: f32) -> Manifold::ContactManifold {
