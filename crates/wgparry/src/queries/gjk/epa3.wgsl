@@ -10,11 +10,11 @@
 #import wgparry::cuboid as ShapeB
 
 // TODO: find the ideal values.
-const MAX_VERTICES_LEN: u32 = 16;
-const MAX_FACES_LEN: u32 = 32;
-const MAX_SILHOUETTE_LEN: u32 = 16;
-const MAX_HEAP_LEN: u32 = 32;
-const MAX_STACK_LEN: u32 = 16;
+const MAX_VERTICES_LEN: u32 = 32;
+const MAX_FACES_LEN: u32 = 64;
+const MAX_SILHOUETTE_LEN: u32 = 32;
+const MAX_HEAP_LEN: u32 = 64;
+const MAX_STACK_LEN: u32 = 32;
 
 var<private> vertices: array<CsoPoint::CsoPoint, MAX_VERTICES_LEN>;
 var<private> vertices_len: u32;

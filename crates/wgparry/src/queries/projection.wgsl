@@ -6,6 +6,8 @@
 
 #define_import_path wgparry::projection
 
+const EPSILON: vec3<f32> = vec3(1.1920929E-7);
+
 /// The result of a point projection operation.
 ///
 /// This structure is returned by all point projection functions.
@@ -86,8 +88,6 @@ const FEATURE_SOLID: u32 = 3;
 
 // TODO: move that to its own utility file
 fn relative_eq(a: vec3<f32>, b: vec3<f32>) -> bool {
-    const EPSILON: vec3<f32> = vec3(1.1920929E-7);
-
     let abs_diff = abs(a - b);
 
     // For when the numbers are really close together

@@ -14,6 +14,7 @@ mod joint_prismatic3;
 mod joint_revolute3;
 mod keva3;
 mod many_pyramids3;
+mod primitives3;
 mod pyramid3;
 
 enum Command {
@@ -39,16 +40,17 @@ fn parse_command_line() -> Command {
 #[allow(clippy::type_complexity)]
 pub fn demo_builders() -> Vec<(&'static str, fn() -> SimulationState)> {
     let mut builders: Vec<(_, fn() -> SimulationState)> = vec![
-        ("Balls", balls3::init_world),
-        ("Boxes", boxes3::init_world),
-        ("Boxes & balls", boxes_and_balls3::init_world),
-        ("Pyramid", pyramid3::init_world),
-        ("Many pyramids", many_pyramids3::init_world),
-        ("Keva tower", keva3::init_world),
-        ("Joints (Spherical)", joint_ball3::init_world),
-        ("Joints (Fixed)", joint_fixed3::init_world),
-        ("Joints (Prismatic)", joint_prismatic3::init_world),
-        ("Joints (Revolute)", joint_revolute3::init_world),
+        // ("Balls", balls3::init_world),
+        // ("Boxes", boxes3::init_world),
+        // ("Boxes & balls", boxes_and_balls3::init_world),
+        ("Primitives", primitives3::init_world),
+        // ("Pyramid", pyramid3::init_world),
+        // ("Many pyramids", many_pyramids3::init_world),
+        // ("Keva tower", keva3::init_world),
+        // ("Joints (Spherical)", joint_ball3::init_world),
+        // ("Joints (Fixed)", joint_fixed3::init_world),
+        // ("Joints (Prismatic)", joint_prismatic3::init_world),
+        // ("Joints (Revolute)", joint_revolute3::init_world),
     ];
 
     // Lexicographic sort, with stress tests moved at the end of the list.

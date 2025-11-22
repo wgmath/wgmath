@@ -15,6 +15,7 @@
 #endif
 #import wgparry::ray as Ray
 #import wgparry::projection as Proj
+#import wgparry::polygonal_feature as Feat
 
 #define_import_path wgparry::cylinder
 
@@ -151,5 +152,56 @@ fn projectPointOnBoundary(cylinder: Cylinder, pose: Transform, pt: Vector) -> Pr
     let local_pt = Pose::invMulPt(pose, pt);
     var result = projectLocalPointOnBoundary(cylinder, local_pt);
     result.point = Pose::mulPt(pose, result.point);
+    return result;
+}
+
+fn support_point(cylinder: Cylinder, pose: Transform, axis: Vector) -> Vector {
+    let local_axis = Pose::invMulVec(pose, axis);
+    let local_pt = local_support_point(cylinder, local_axis);
+    return Pose::mulPt(pose, local_pt);
+}
+
+fn local_support_point(cylinder: Cylinder, dir: Vector) -> Vector {
+    var vres = dir;
+    vres.y = 0.0;
+
+    let planar_dir_len = length(vres);
+    let factor = select(0.0, cylinder.radius / planar_dir_len, planar_dir_len != 0.0);
+    vres *= factor;
+    vres.y = select(-cylinder.half_height, cylinder.half_height, dir.y >= 0.0);
+    return vres;
+}
+
+fn support_face(cylinder: Cylinder, dir: Vector) -> Feat::PolygonalFeature {
+    var result = Feat::PolygonalFeature();
+
+    var dir2 = vec2(dir.x, dir.z);
+    let dir2_len = length(dir2);
+    if dir2_len < Proj::EPSILON.x {
+        dir2 = vec2(1.0, 0.0);
+    } else {
+        dir2 /= dir2_len;
+    }
+
+    if abs(dir.y) < 0.5 {
+        // We return a segment lying on the cylinder's curved part.
+        result.vertices[0] = vec3(
+            dir2.x * cylinder.radius,
+            -cylinder.half_height,
+            dir2.y * cylinder.radius,
+        );
+        result.vertices[1] =
+            vec3(dir2.x * cylinder.radius, cylinder.half_height, dir2.y * cylinder.radius);
+        result.num_vertices = 2;
+    } else {
+        // We return a square approximation of the cylinder cap.
+        let y = select(-cylinder.half_height, cylinder.half_height, dir.y >= 0.0);
+        result.vertices[0] = vec3(dir2.x * cylinder.radius, y, dir2.y * cylinder.radius);
+        result.vertices[1] = vec3(-dir2.y * cylinder.radius, y, dir2.x * cylinder.radius);
+        result.vertices[2] = vec3(-dir2.x * cylinder.radius, y, -dir2.y * cylinder.radius);
+        result.vertices[3] = vec3(dir2.y * cylinder.radius, y, -dir2.x * cylinder.radius);
+        result.num_vertices = 4;
+    }
+
     return result;
 }

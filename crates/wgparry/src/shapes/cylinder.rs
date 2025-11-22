@@ -5,14 +5,14 @@
 //!
 //! **Note:** This shape is only available with the `dim3` feature.
 
-use crate::queries::{WgProjection, WgRay};
+use crate::queries::{WgPolygonalFeature, WgProjection, WgRay};
 use crate::{dim_shader_defs, substitute_aliases};
 use wgcore::Shader;
 use wgebra::{WgSim2, WgSim3};
 
 #[derive(Shader)]
 #[shader(
-    derive(WgSim3, WgSim2, WgRay, WgProjection),
+    derive(WgSim3, WgSim2, WgRay, WgProjection, WgPolygonalFeature),
     src = "cylinder.wgsl",
     src_fn = "substitute_aliases",
     shader_defs = "dim_shader_defs"

@@ -75,7 +75,7 @@ fn contact_manifold_pfm_pfm(
             let dist = dot(p2_1 - p1, local_n1);
 
             let feature1 = ShapeA::support_face(pfm1, local_n1);
-            let feature2 = ShapeA::support_face(pfm2, local_n2);
+            let feature2 = ShapeB::support_face(pfm2, local_n2);
             var manifold = PolygonalFeature::contacts(
                 pose12,
                 Pose::inv(pose12),

@@ -12,9 +12,11 @@ mod polygonal_feature;
 mod projection;
 mod ray;
 mod sat;
+mod specializations;
 
 pub use contact::*;
 pub use polygonal_feature::*;
 pub use projection::*;
 pub use ray::*;
 pub use sat::*;
+pub use specializations::*;
