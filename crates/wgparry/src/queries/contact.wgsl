@@ -26,10 +26,17 @@
 
 #import wgparry::ball as Ball
 #import wgparry::cuboid as Cuboid
+#import wgparry::cylinder as Cylinder
+#import wgparry::cone as Cone
 #import wgparry::sat as Sat
 #import wgparry::polygonal_feature as PolygonalFeature
 #import wgparry::contact_manifold as Manifold
 #import wgparry::queries::contact_pfm_pfm_generic as PfmPfm
+#import wgparry::queries::contact_cylinder_cuboid as CylinderCuboid
+#import wgparry::queries::contact_cylinder_cylinder as CylinderCylinder
+#import wgparry::queries::contact_cylinder_cone as CylinderCone
+#import wgparry::queries::contact_cuboid_cone as CuboidCone
+#import wgparry::queries::contact_cone_cone as ConeCone
 
 #define_import_path wgparry::contact
 
@@ -102,11 +109,43 @@ fn ball_cuboid(pose12: Transform, ball1: Ball::Ball, cuboid2: Cuboid::Cuboid) ->
     return result;
 }
 
-fn cuboid_cuboid(pose12: Transform, cuboid1: Cuboid::Cuboid, cuboid2: Cuboid::Cuboid, prediction: f32) -> Manifold::ContactManifold {
+fn cylinder_cylinder(pose12: Transform, shape1: Cylinder::Cylinder, shape2: Cylinder::Cylinder, prediction: f32) -> Manifold::ContactManifold {
+    return CylinderCylinder::contact_manifold_pfm_pfm(pose12, shape1, 0.0, shape2, 0.0, prediction);
+}
+
+fn cylinder_cuboid(pose12: Transform, shape1: Cylinder::Cylinder, shape2: Cuboid::Cuboid, prediction: f32) -> Manifold::ContactManifold {
+    return CylinderCuboid::contact_manifold_pfm_pfm(pose12, shape1, 0.0, shape2, 0.0, prediction);
+}
+
+fn cuboid_cylinder(pose12: Transform, shape1: Cuboid::Cuboid, shape2: Cylinder::Cylinder, prediction: f32) -> Manifold::ContactManifold {
+    return Manifold::flip(cylinder_cuboid(Pose::inv(pose12), shape2, shape1, prediction), pose12);
+}
+
+fn cylinder_cone(pose12: Transform, shape1: Cylinder::Cylinder, shape2: Cone::Cone, prediction: f32) -> Manifold::ContactManifold {
+    return CylinderCone::contact_manifold_pfm_pfm(pose12, shape1, 0.0, shape2, 0.0, prediction);
+}
+
+fn cone_cylinder(pose12: Transform, shape1: Cone::Cone, shape2: Cylinder::Cylinder, prediction: f32) -> Manifold::ContactManifold {
+    return Manifold::flip(cylinder_cone(Pose::inv(pose12), shape2, shape1, prediction), pose12);
+}
+
+fn cuboid_cone(pose12: Transform, shape1: Cuboid::Cuboid, shape2: Cone::Cone, prediction: f32) -> Manifold::ContactManifold {
+    return CuboidCone::contact_manifold_pfm_pfm(pose12, shape1, 0.0, shape2, 0.0, prediction);
+}
+
+fn cone_cuboid(pose12: Transform, shape1: Cone::Cone, shape2: Cuboid::Cuboid, prediction: f32) -> Manifold::ContactManifold {
+    return Manifold::flip(cuboid_cone(Pose::inv(pose12), shape2, shape1, prediction), pose12);
+}
+
+fn cone_cone(pose12: Transform, shape1: Cone::Cone, shape2: Cone::Cone, prediction: f32) -> Manifold::ContactManifold {
+    return ConeCone::contact_manifold_pfm_pfm(pose12, shape1, 0.0, shape2, 0.0, prediction);
+}
+
+fn cuboid_cuboid_pfm(pose12: Transform, cuboid1: Cuboid::Cuboid, cuboid2: Cuboid::Cuboid, prediction: f32) -> Manifold::ContactManifold {
     return PfmPfm::contact_manifold_pfm_pfm(pose12, cuboid1, 0.0, cuboid2, 0.0, prediction);
 }
 
-fn cuboid_cuboid_sat(pose12: Transform, cuboid1: Cuboid::Cuboid, cuboid2: Cuboid::Cuboid, prediction: f32) -> Manifold::ContactManifold {
+fn cuboid_cuboid(pose12: Transform, cuboid1: Cuboid::Cuboid, cuboid2: Cuboid::Cuboid, prediction: f32) -> Manifold::ContactManifold {
     let pose21 = Pose::inv(pose12);
 
     /*

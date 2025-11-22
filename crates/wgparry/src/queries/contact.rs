@@ -13,13 +13,38 @@
 
 use super::{WgPolygonalFeature, WgSat};
 use crate::math::Vector;
-use crate::queries::gjk::{WgCsoPoint, WgEpa, WgGjk, WgVoronoiSimplex};
-use crate::shapes::{WgBall, WgCuboid};
+use crate::queries::gjk::{WgCsoPoint, WgEpa, WgEpaGeneric, WgGjk, WgVoronoiSimplex};
+use crate::shapes::{WgBall, WgCone, WgCuboid, WgCylinder};
 use crate::{dim_shader_defs, substitute_aliases};
 use encase::ShaderType;
 use na::Vector2;
 use wgcore::Shader;
 use wgebra::{WgSim2, WgSim3};
+
+use crate::queries::{
+    gjk::{WgEpaCuboidCone, WgGjkCuboidCone},
+    specialize_cuboid_cone,
+};
+
+use crate::queries::{
+    gjk::{WgEpaConeCone, WgGjkConeCone},
+    specialize_cone_cone,
+};
+
+use crate::queries::{
+    gjk::{WgEpaCylinderCone, WgGjkCylinderCone},
+    specialize_cylinder_cone,
+};
+
+use crate::queries::{
+    gjk::{WgEpaCylinderCuboid, WgGjkCylinderCuboid},
+    specialize_cylinder_cuboid,
+};
+
+use crate::queries::{
+    gjk::{WgEpaCylinderCylinder, WgGjkCylinderCylinder},
+    specialize_cylinder_cylinder,
+};
 
 #[cfg(feature = "dim2")]
 const MAX_MANIFOLD_POINTS: usize = 2;
@@ -92,12 +117,19 @@ pub struct GpuIndexedContact {
     derive(
         WgBall,
         WgCuboid,
+        WgCylinder,
+        WgCone,
         WgSim2,
         WgSim3,
         WgSat,
         WgPolygonalFeature,
         WgContactManifold,
-        WgContactPfmPfmGeneric
+        WgContactPfmPfmGeneric,
+        WgContactPfmPfmCylinderCuboid,
+        WgContactPfmPfmCylinderCylinder,
+        WgContactPfmPfmCylinderCone,
+        WgContactPfmPfmCuboidCone,
+        WgContactPfmPfmConeCone,
     ),
     src = "contact.wgsl",
     src_fn = "substitute_aliases",
@@ -114,6 +146,7 @@ pub struct WgContact;
 
 #[derive(Shader)]
 #[shader(
+    derive(WgSim2, WgSim3),
     src = "contact_manifold.wgsl",
     src_fn = "substitute_aliases",
     shader_defs = "dim_shader_defs"
@@ -143,5 +176,93 @@ pub struct WgContactManifold;
 )]
 pub struct WgContactPfmPfmGeneric;
 
+#[derive(Shader)]
+#[shader(
+    derive(
+        WgCuboid,
+        WgCylinder,
+        WgCsoPoint,
+        WgVoronoiSimplex,
+        WgGjkCylinderCuboid,
+        WgEpaCylinderCuboid,
+        WgPolygonalFeature,
+    ),
+    src = "contact_pfm_pfm_generic.wgsl",
+    src_fn = "specialize_cylinder_cuboid",
+    shader_defs = "dim_shader_defs"
+)]
+pub struct WgContactPfmPfmCylinderCuboid;
+#[derive(Shader)]
+#[shader(
+    derive(
+        WgCylinder,
+        WgCsoPoint,
+        WgVoronoiSimplex,
+        WgGjkCylinderCylinder,
+        WgEpaCylinderCylinder,
+        WgPolygonalFeature,
+    ),
+    src = "contact_pfm_pfm_generic.wgsl",
+    src_fn = "specialize_cylinder_cylinder",
+    shader_defs = "dim_shader_defs"
+)]
+pub struct WgContactPfmPfmCylinderCylinder;
+#[derive(Shader)]
+#[shader(
+    derive(
+        WgCylinder,
+        WgCone,
+        WgCsoPoint,
+        WgVoronoiSimplex,
+        WgGjkCylinderCone,
+        WgEpaCylinderCone,
+        WgPolygonalFeature,
+    ),
+    src = "contact_pfm_pfm_generic.wgsl",
+    src_fn = "specialize_cylinder_cone",
+    shader_defs = "dim_shader_defs"
+)]
+pub struct WgContactPfmPfmCylinderCone;
+#[derive(Shader)]
+#[shader(
+    derive(
+        WgCuboid,
+        WgCone,
+        WgCsoPoint,
+        WgVoronoiSimplex,
+        WgGjkCuboidCone,
+        WgEpaCuboidCone,
+        WgPolygonalFeature,
+    ),
+    src = "contact_pfm_pfm_generic.wgsl",
+    src_fn = "specialize_cuboid_cone",
+    shader_defs = "dim_shader_defs"
+)]
+pub struct WgContactPfmPfmCuboidCone;
+#[derive(Shader)]
+#[shader(
+    derive(
+        WgCone,
+        WgCsoPoint,
+        WgVoronoiSimplex,
+        WgGjkConeCone,
+        WgEpaConeCone,
+        WgPolygonalFeature,
+    ),
+    src = "contact_pfm_pfm_generic.wgsl",
+    src_fn = "specialize_cone_cone",
+    shader_defs = "dim_shader_defs"
+)]
+pub struct WgContactPfmPfmConeCone;
+
 wgcore::test_shader_compilation!(WgContact, wgcore, crate::dim_shader_defs());
-wgcore::test_shader_compilation!(WgContactPfmPfmGeneric, wgcore, crate::dim_shader_defs());
+wgcore::test_shader_compilation!(
+    WgContactPfmPfmCylinderCuboid,
+    wgcore,
+    crate::dim_shader_defs()
+);
+wgcore::test_shader_compilation!(
+    WgContactPfmPfmCylinderCylinder,
+    wgcore,
+    crate::dim_shader_defs()
+);
