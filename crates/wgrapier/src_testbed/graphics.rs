@@ -201,6 +201,25 @@ pub async fn setup_graphics(window: &mut Window, phys: &SimulationState) -> Rend
                 });
                 singletons.push(singleton);
             }
+            ShapeType::TriMesh => {
+                let trimesh = shape.as_trimesh().unwrap();
+                let mut render = RenderMesh::from(trimesh.clone());
+                // Use face normals as vertex normals for flat shading.
+                render.replicate_vertices();
+                render.recompute_normals();
+                let node = window.add_render_mesh(render, Vector3::repeat(1.0));
+                let mut singleton = InstancedNode {
+                    node,
+                    entries: vec![],
+                    data: vec![],
+                };
+                singleton.entries.push(InstancedNodeEntry {
+                    index: i,
+                    color: [color.x, color.y, color.z, 1.0],
+                    scale: [1.0, 1.0, 1.0],
+                });
+                singletons.push(singleton);
+            }
             _ => todo!(),
         }
     }

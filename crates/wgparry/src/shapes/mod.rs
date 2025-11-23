@@ -16,6 +16,8 @@ mod cone;
 #[cfg(feature = "dim3")]
 mod cylinder;
 mod shape;
+mod trimesh;
+mod vtx_idx;
 
 pub use ball::*;
 pub use capsule::*;
@@ -25,6 +27,8 @@ pub use segment::*;
 pub use shape::*;
 pub use tetrahedron::*;
 pub use triangle::*;
+pub use trimesh::*;
+pub use vtx_idx::*;
 
 #[cfg(feature = "dim3")]
 pub use cone::*;

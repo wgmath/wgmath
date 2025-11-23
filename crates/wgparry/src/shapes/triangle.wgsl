@@ -5,6 +5,8 @@
 #define_import_path wgparry::triangle
 
 #import wgparry::projection as Proj
+#import wgparry::bounding_volumes::aabb as Aabb;
+#import wgparry::polygonal_feature as Feat
 
 #if DIM == 2
 const DIM: u32 = 2;
@@ -260,3 +262,27 @@ fn relative_eq(a: f32, b: f32, eps: f32) -> bool {
     return abs_diff <= max(abs_b, abs_a) * eps;
 }
 #endif
+
+
+fn aabb(shape: Triangle) -> Aabb::Aabb {
+    var mins = min(min(shape.a, shape.b), shape.c);
+    var maxs = max(max(shape.a, shape.b), shape.c);
+    return Aabb::Aabb(mins, maxs);
+}
+
+fn local_support_point(shape: Triangle, dir: Vector) -> Vector {
+    let da = dot(dir, shape.a);
+    let db = dot(dir, shape.b);
+    let dc = dot(dir, shape.c);
+    return select(select(shape.c, shape.b, db > dc), select(shape.c, shape.a, da > dc), da > db);
+}
+
+fn support_face(shape: Triangle, dir: Vector) -> Feat::PolygonalFeature {
+    // Just return the whole triangle.
+    var result = Feat::PolygonalFeature();
+    result.vertices[0] = shape.a;
+    result.vertices[1] = shape.b;
+    result.vertices[2] = shape.c;
+    result.num_vertices = 3;
+    return result;
+}

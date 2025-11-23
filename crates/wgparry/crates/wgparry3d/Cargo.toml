@@ -32,6 +32,7 @@ parry3d = { workspace = true }
 
 wgcore = { version = "0.2", path = "../../../wgcore", features = ["derive"] }
 wgebra = { version = "0.2", path = "../../../wgebra" }
+bvh = "0.12"
 
 [dev-dependencies]
 nalgebra = { version = "0.34", features = ["rand"] }

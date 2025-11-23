@@ -16,6 +16,7 @@ mod keva3;
 mod many_pyramids3;
 mod primitives3;
 mod pyramid3;
+mod trimesh3;
 
 enum Command {
     Run(String),
@@ -51,6 +52,7 @@ pub fn demo_builders() -> Vec<(&'static str, fn() -> SimulationState)> {
         ("Joints (Fixed)", joint_fixed3::init_world),
         ("Joints (Prismatic)", joint_prismatic3::init_world),
         ("Joints (Revolute)", joint_revolute3::init_world),
+        ("Trimesh", trimesh3::init_world),
     ];
 
     // Lexicographic sort, with stress tests moved at the end of the list.
