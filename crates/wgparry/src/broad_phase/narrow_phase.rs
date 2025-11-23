@@ -13,7 +13,7 @@
 use crate::bounding_volumes::WgAabb;
 use crate::math::{GpuSim, Point, Vector};
 use crate::queries::{GpuIndexedContact, WgContact};
-use crate::shapes::{GpuShape, WgShape};
+use crate::shapes::{GpuShape, WgShape, WgTriMesh};
 use crate::{dim_shader_defs, substitute_aliases};
 use wgcore::indirect::{DispatchIndirectArgs, WgIndirect};
 use wgcore::kernel::KernelDispatch;
@@ -24,7 +24,7 @@ use wgpu::{ComputePass, ComputePipeline, Device};
 
 #[derive(Shader)]
 #[shader(
-    derive(WgSim3, WgSim2, WgShape, WgAabb, WgContact, WgIndirect),
+    derive(WgSim3, WgSim2, WgShape, WgAabb, WgContact, WgIndirect, WgTriMesh),
     src = "./narrow_phase.wgsl",
     src_fn = "substitute_aliases",
     shader_defs = "dim_shader_defs",

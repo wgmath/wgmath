@@ -20,9 +20,11 @@
 
 use crate::bounding_volumes::WgAabb;
 use crate::queries::{WgPolygonalFeature, WgProjection, WgRay};
-use crate::shapes::{WgBall, WgCapsule, WgConvexPolyhedron, WgCuboid};
+use crate::shapes::{WgBall, WgCapsule, WgConvexPolyhedron, WgCuboid, WgTriMesh, WgTriangle};
 use crate::{dim_shader_defs, substitute_aliases};
 use na::{vector, Vector4};
+use parry::bounding_volume::Aabb;
+use parry::partitioning::{BvhNodeWide, TraversalAction};
 use parry::shape::{Ball, Cuboid, Shape, ShapeType, TypedShape};
 use wgcore::{test_shader_compilation, Shader};
 use wgebra::{WgSim2, WgSim3};
@@ -96,6 +98,11 @@ pub struct ShapeBuffers {
 pub struct GpuShape {
     a: Vector4<f32>,
     b: Vector4<f32>,
+    // Needed for triangles. While we don’t construct explicitly triangle shapes on the rust side,
+    // this is useful on the GPU so that collision-detection involving triangle meshes can then
+    // call the pfm-pfm collision-detection (which relies on dynamic dispatch) by storing the
+    // triangle as a Shape.
+    c: Vector4<f32>,
 }
 
 impl GpuShape {
@@ -113,6 +120,7 @@ impl GpuShape {
         Self {
             a: vector![radius, 0.0, 0.0, tag],
             b: vector![0.0, 0.0, 0.0, 0.0],
+            c: vector![0.0, 0.0, 0.0, 0.0],
         }
     }
 
@@ -133,6 +141,7 @@ impl GpuShape {
             #[cfg(feature = "dim3")]
             a: vector![half_extents.x, half_extents.y, half_extents.z, tag],
             b: vector![0.0, 0.0, 0.0, 0.0],
+            c: vector![0.0, 0.0, 0.0, 0.0],
         }
     }
 
@@ -153,11 +162,13 @@ impl GpuShape {
         return Self {
             a: vector![a.x, a.y, 0.0, tag],
             b: vector![b.x, b.y, 0.0, radius],
+            c: vector![0.0, 0.0, 0.0, 0.0],
         };
         #[cfg(feature = "dim3")]
         return Self {
             a: vector![a.x, a.y, a.z, tag],
             b: vector![b.x, b.y, b.z, radius],
+            c: vector![0.0, 0.0, 0.0, 0.0],
         };
     }
 
@@ -175,23 +186,27 @@ impl GpuShape {
         Self {
             a: vector![rng0, rng1, 0.0, tag],
             b: vector![0.0, 0.0, 0.0, 0.0],
+            c: vector![0.0, 0.0, 0.0, 0.0],
         }
     }
 
     /// Creates a triangle mesh shape from a range of vertices.
     ///
     /// A trimesh is a collection of triangles sharing vertices.
-    ///
-    /// # Parameters
-    ///
-    /// - `vertex_range`: Start and end indices into the vertex buffer
-    pub fn trimesh(vertex_range: [u32; 2]) -> Self {
+    pub fn trimesh(
+        bvh_vtx_root_id: u32,
+        bvh_idx_root_id: u32,
+        first_tri_id: u32,
+        aabb: Aabb,
+    ) -> Self {
         let tag = f32::from_bits(GpuShapeType::TriMesh as u32);
-        let rng0 = f32::from_bits(vertex_range[0]);
-        let rng1 = f32::from_bits(vertex_range[1]);
+        let a0 = f32::from_bits(bvh_vtx_root_id);
+        let a1 = f32::from_bits(bvh_idx_root_id);
+        let a2 = f32::from_bits(first_tri_id);
         Self {
-            a: vector![rng0, rng1, 0.0, tag],
-            b: vector![0.0, 0.0, 0.0, 0.0],
+            a: vector![a0, a1, a2, tag],
+            b: aabb.mins.coords.push(0.0),
+            c: aabb.maxs.coords.push(0.0),
         }
     }
 
@@ -210,6 +225,7 @@ impl GpuShape {
         Self {
             a: vector![a0, a1, 0.0, tag],
             b: vector![b0, b1, 0.0, 0.0],
+            c: vector![0.0, 0.0, 0.0, 0.0],
         }
     }
 
@@ -225,6 +241,7 @@ impl GpuShape {
         Self {
             a: vector![half_height, radius, 0.0, tag],
             b: vector![0.0, 0.0, 0.0, 0.0],
+            c: vector![0.0, 0.0, 0.0, 0.0],
         }
     }
 
@@ -240,6 +257,7 @@ impl GpuShape {
         Self {
             a: vector![half_height, radius, 0.0, tag],
             b: vector![0.0, 0.0, 0.0, 0.0],
+            c: vector![0.0, 0.0, 0.0, 0.0],
         }
     }
 
@@ -282,12 +300,68 @@ impl GpuShape {
                 ]))
             }
             TypedShape::TriMesh(shape) => {
-                let base_id = buffers.vertices.len();
+                let bvh_vtx_root_id = buffers.vertices.len();
+                let bvh_idx_root_id = buffers.indices.len();
+                // Append the BVH data to the vertex/index buffers.
+                // TODO: we are constructing a BVH using the `bvh` crate.
+                //       While the TriMesh shape technically already has a BVH, parry’s BVH
+                //       doesn’t provide explicit access to the BVH topology. So, for now,
+                //       let’s just build a new BVH that exposes its internal.
+                struct BvhObject {
+                    aabb: bvh::aabb::Aabb<f32, 3>,
+                    node_index: usize,
+                }
+
+                impl bvh::aabb::Bounded<f32, 3> for BvhObject {
+                    fn aabb(&self) -> bvh::aabb::Aabb<f32, 3> {
+                        self.aabb
+                    }
+                }
+
+                impl bvh::bounding_hierarchy::BHShape<f32, 3> for BvhObject {
+                    fn set_bh_node_index(&mut self, index: usize) {
+                        self.node_index = index;
+                    }
+
+                    fn bh_node_index(&self) -> usize {
+                        self.node_index
+                    }
+                }
+
+                let mut objects: Vec<_> = shape
+                    .triangles()
+                    .map(|tri| {
+                        let aabb = tri.local_aabb();
+                        BvhObject {
+                            aabb: bvh::aabb::Aabb::with_bounds(aabb.mins, aabb.maxs),
+                            node_index: 0,
+                        }
+                    })
+                    .collect();
+
+                let bvh = bvh::bvh::Bvh::build(&mut objects);
+                let flat_bvh = bvh.flatten();
+                buffers
+                    .vertices
+                    .extend(flat_bvh.iter().flat_map(|n| [n.aabb.min, n.aabb.max]));
+                let first_tri_id = flat_bvh.len();
+                buffers.indices.extend(
+                    flat_bvh
+                        .iter()
+                        .flat_map(|n| [n.entry_index, n.exit_index, n.shape_index]),
+                );
+
+                // Append the actual mesh vertex/index buffers.
                 buffers.vertices.extend_from_slice(shape.vertices());
-                Some(Self::trimesh([
-                    base_id as u32,
-                    buffers.vertices.len() as u32,
-                ]))
+                buffers
+                    .indices
+                    .extend(shape.indices().iter().flat_map(|tri| tri.iter().copied()));
+                Some(Self::trimesh(
+                    bvh_vtx_root_id as u32,
+                    bvh_idx_root_id as u32,
+                    first_tri_id as u32,
+                    shape.local_aabb(),
+                ))
             }
             TypedShape::ConvexPolyhedron(poly) => {
                 let first_vtx_id = buffers.vertices.len();
@@ -329,13 +403,7 @@ impl GpuShape {
             }
             #[cfg(feature = "dim3")]
             TypedShape::HeightField(shape) => {
-                let base_id = buffers.vertices.len();
-                let (vtx, _) = shape.to_trimesh();
-                buffers.vertices.extend_from_slice(&vtx);
-                Some(Self::trimesh([
-                    base_id as u32,
-                    buffers.vertices.len() as u32,
-                ]))
+                todo!()
             }
             #[cfg(feature = "dim3")]
             TypedShape::Cone(shape) => Some(Self::cone(shape.half_height, shape.radius)),
@@ -453,6 +521,8 @@ struct WgCylinder;
         WgCylinder,
         WgPolygonalFeature,
         WgConvexPolyhedron,
+        WgTriangle,
+        WgTriMesh,
         WgAabb,
     ),
     src = "shape.wgsl",

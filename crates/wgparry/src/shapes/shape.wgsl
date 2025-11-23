@@ -27,6 +27,8 @@
 #import wgparry::cone as Con;
 #import wgparry::polygonal_feature as Feat
 #import wgparry::convex as Convex;
+#import wgparry::trimesh as TriMesh;
+#import wgparry::triangle as Tri;
 #import wgparry::bounding_volumes::aabb as Aabb;
 
 #define_import_path wgparry::shape
@@ -40,6 +42,9 @@ const SHAPE_TYPE_CYLINDER: u32 = 4;
 const SHAPE_TYPE_POLYLINE: u32 = 5;
 const SHAPE_TYPE_TRIMESH: u32 = 6;
 const SHAPE_TYPE_CONVEX_POLY: u32 = 7;
+// TODO: since this shape type is only for trimeshesh, it doesn’t implement all the
+//       operations it could if it were a standalone shape.
+const SHAPE_TYPE_TRIANGLE: u32 = 8;
 
 /// A generic shape that can represent any concrete shape type.
 ///
@@ -50,6 +55,8 @@ struct Shape {
     a: vec4<f32>,
     /// Second vec4 for additional shape data (primarily for capsule segment endpoint).
     b: vec4<f32>,
+    /// Third vec4, only used for triangles.
+    c: vec4<f32>,
 }
 
 fn shape_type(shape: Shape) -> u32 {
@@ -75,6 +82,23 @@ fn to_ball(shape: Shape) -> Bal::Ball {
     return Bal::Ball(shape.a.x);
 }
 
+fn to_triangle(shape: Shape) -> Tri::Triangle {
+    // Triangle layout:
+    //     vec4(a.x, a.y, a.z, shape_type)
+    //     vec4(b.x, b.y, b.z, _)
+    //     vec4(c.x, c.y, c.z, _)
+    return Tri::Triangle(shape.a.xyz, shape.b.xyz, shape.c.xyz);
+}
+
+fn from_triangle(tri: Tri::Triangle) -> Shape {
+    let tag = bitcast<f32>(SHAPE_TYPE_TRIANGLE);
+    return Shape(
+        vec4(tri.a, tag),
+        vec4(tri.b, 0.0),
+        vec4(tri.c, 0.0)
+    );
+}
+
 fn to_capsule(shape: Shape) -> Cap::Capsule {
     // Capsule layout:
     //     vec4(ax, ay, az, shape_type)
@@ -86,10 +110,10 @@ fn to_capsule(shape: Shape) -> Cap::Capsule {
 #endif
 }
 
-fn wrap_capsule(cap: Cap::Capsule) -> Shape {
+fn from_capsule(cap: Cap::Capsule) -> Shape {
     let a = vec4(cap.segment.a, bitcast<f32>(SHAPE_TYPE_CAPSULE));
     let b = vec4(cap.segment.b, cap.radius);
-    return Shape(a, b);
+    return Shape(a, b, vec4());
 }
 
 fn to_cuboid(shape: Shape) -> Cub::Cuboid {
@@ -130,6 +154,17 @@ fn to_convex_poly(shape: Shape) -> Convex::ConvexPolyhedron {
     return Convex::ConvexPolyhedron(first_vtx_id, end_vtx_id, first_tri_id, end_tri_id);
 }
 
+fn to_trimesh(shape: Shape) -> TriMesh::TriMesh {
+    // Trimesh layout:
+    //     vec4(bvh_vtx_root_id, bvh_idx_root_id, first_tri_id, shape_type)
+    //     vec4(root_aabb.mins, _)
+    //     vec4(root_aabb.maxs, _)
+    let bvh_vtx_root_id = bitcast<u32>(shape.a.x);
+    let bvh_idx_root_id = bitcast<u32>(shape.a.y);
+    let first_tri_id = bitcast<u32>(shape.a.z);
+    let root_aabb = Aabb::Aabb(shape.b.xyz, shape.c.xyz);
+    return TriMesh::TriMesh(bvh_vtx_root_id, bvh_idx_root_id, first_tri_id, root_aabb);
+}
 
 /*
  *
@@ -250,6 +285,9 @@ fn local_support_point(shape: Shape, dir: Vector) -> Vector {
     if ty == SHAPE_TYPE_CUBOID {
         return Cub::local_support_point(to_cuboid(shape), dir);
     }
+    if ty == SHAPE_TYPE_TRIANGLE {
+        return Tri::local_support_point(to_triangle(shape), dir);
+    }
     if ty == SHAPE_TYPE_CAPSULE {
         return Cap::local_support_point(to_capsule(shape), dir);
     }
@@ -277,6 +315,9 @@ fn support_face(shape: Shape, dir: Vector) -> Feat::PolygonalFeature {
     if ty == SHAPE_TYPE_CUBOID {
         return Cub::support_face(to_cuboid(shape), dir);
     }
+    if ty == SHAPE_TYPE_CUBOID {
+        return Tri::support_face(to_triangle(shape), dir);
+    }
     if ty == SHAPE_TYPE_CAPSULE {
         return Cap::support_face(to_capsule(shape), dir);
     }
@@ -298,7 +339,7 @@ fn support_face(shape: Shape, dir: Vector) -> Feat::PolygonalFeature {
 
 fn pfm_subshape(shape: Shape) -> PfmSubShape {
     let ty = shape_type(shape);
-    if ty == SHAPE_TYPE_CUBOID || ty == SHAPE_TYPE_CONE || ty == SHAPE_TYPE_CYLINDER || ty == SHAPE_TYPE_CONVEX_POLY {
+    if ty == SHAPE_TYPE_CUBOID || ty == SHAPE_TYPE_CONE || ty == SHAPE_TYPE_CYLINDER || ty == SHAPE_TYPE_CONVEX_POLY || ty == SHAPE_TYPE_TRIANGLE {
         // No subshape, return the original shape itself.
         return PfmSubShape(shape, 0.0, true);
     }
@@ -306,13 +347,13 @@ fn pfm_subshape(shape: Shape) -> PfmSubShape {
     if ty == SHAPE_TYPE_BALL {
         let ball = to_ball(shape);
         let segment = Cap::Capsule();
-        return PfmSubShape(wrap_capsule(segment), ball.radius, true);
+        return PfmSubShape(from_capsule(segment), ball.radius, true);
     }
 
     if ty == SHAPE_TYPE_CAPSULE {
         let capsule = to_capsule(shape);
         let without_radius = Cap::Capsule(capsule.segment, 0.0);
-        return PfmSubShape(wrap_capsule(without_radius), capsule.radius, true);
+        return PfmSubShape(from_capsule(without_radius), capsule.radius, true);
     }
 
     // Not a PFM.
@@ -342,6 +383,12 @@ fn aabb(pose: Transform, shape: Shape) -> Aabb::Aabb {
     if ty == SHAPE_TYPE_CUBOID {
         let cuboid = to_cuboid(shape);
         let local_aabb = Aabb::Aabb(-cuboid.halfExtents, cuboid.halfExtents);
+        return Aabb::transform(local_aabb, pose);
+    }
+
+    if ty == SHAPE_TYPE_TRIANGLE {
+        let triangle = to_triangle(shape);
+        let local_aabb = Tri::aabb(triangle);
         return Aabb::transform(local_aabb, pose);
     }
 
@@ -378,6 +425,12 @@ fn aabb(pose: Transform, shape: Shape) -> Aabb::Aabb {
     if ty == SHAPE_TYPE_CONVEX_POLY {
         let poly = to_convex_poly(shape);
         let local_aabb = Convex::aabb(poly);
+        return Aabb::transform(local_aabb, pose);
+    }
+
+    if ty == SHAPE_TYPE_TRIMESH {
+        let trimesh = to_trimesh(shape);
+        let local_aabb = TriMesh::aabb(trimesh);
         return Aabb::transform(local_aabb, pose);
     }
 
