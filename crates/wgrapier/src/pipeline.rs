@@ -20,6 +20,7 @@ use naga_oil::compose::ComposerError;
 use nalgebra::Vector4;
 use rapier::dynamics::{ImpulseJointSet, RigidBodySet};
 use rapier::geometry::ColliderSet;
+use rapier::math::Vector;
 use std::collections::HashMap;
 use std::time::Duration;
 use wgcore::gpu::GpuInstance;
@@ -29,7 +30,7 @@ use wgcore::tensor::{GpuScalar, GpuVector};
 use wgcore::timestamps::GpuTimestamps;
 use wgcore::Shader;
 use wgparry::broad_phase::LbvhState;
-use wgparry::math::GpuSim;
+use wgparry::math::{GpuSim, Point};
 use wgparry::shapes::ShapeBuffers;
 use wgpu::{BufferUsages, Device};
 
@@ -89,6 +90,8 @@ pub struct GpuPhysicsState {
     solver_vels: GpuVector<GpuVelocity>,
     solver_vels_out: GpuVector<GpuVelocity>,
     solver_vels_inc: GpuVector<GpuVelocity>,
+    vertex_buffers: GpuVector<Point<f32>>,
+    index_buffers: GpuVector<u32>,
     shapes: GpuVector<GpuShape>,
     num_shapes: GpuScalar<u32>,
     num_shapes_indirect: GpuScalar<[u32; 3]>,
@@ -159,6 +162,7 @@ impl GpuPhysicsState {
         let mut rb_local_mprops = Vec::new();
         let mut rb_mprops = Vec::new();
         let mut shapes = Vec::new();
+        let mut shape_buffers = ShapeBuffers::default();
         let mut body_ids = HashMap::new();
 
         for (_, co) in colliders.iter() {
@@ -191,13 +195,26 @@ impl GpuPhysicsState {
 
             rb_local_mprops.push(local_mprops);
             rb_mprops.push(mprops);
-            let mut buffers = ShapeBuffers::default();
-            shapes.push(GpuShape::from_parry(co.shape(), &mut buffers).expect("Unsupported shape"));
+            shapes.push(
+                GpuShape::from_parry(co.shape(), &mut shape_buffers).expect("Unsupported shape"),
+            );
             #[cfg(feature = "dim2")]
             rb_poses.push(GpuSim::from(*co.position()));
             #[cfg(feature = "dim3")]
             rb_poses.push(GpuSim::from_isometry(*co.position(), 1.0));
         }
+
+        // NOTE: wgpu doesn’t like empty storage buffer bindings.
+        //       So if the vertex/index buffers are empty, add some dummy value instead of leaving
+        //       them empty. This won’t have any performance impact.
+        if shape_buffers.vertices.is_empty() {
+            shape_buffers.vertices.push(Point::origin());
+            shape_buffers.indices.extend_from_slice(&[0; 3]);
+        }
+
+        let vertex_buffers =
+            GpuVector::encase(device, &shape_buffers.vertices, BufferUsages::STORAGE);
+        let index_buffers = GpuVector::init(device, &shape_buffers.indices, BufferUsages::STORAGE);
 
         let joints = GpuImpulseJointSet::from_rapier(device, impulse_joints, &body_ids);
 
@@ -265,6 +282,8 @@ impl GpuPhysicsState {
                 &rb_poses,
                 BufferUsages::STORAGE | BufferUsages::COPY_SRC,
             ),
+            vertex_buffers,
+            index_buffers,
             shapes,
             num_shapes,
             num_shapes_indirect,
@@ -442,6 +461,8 @@ impl GpuPhysicsPipeline {
             &mut state.lbvh,
             state.poses.len() as u32,
             &state.poses,
+            &state.vertex_buffers,
+            &state.index_buffers,
             &state.shapes,
             &state.num_shapes,
         );
@@ -529,6 +550,8 @@ impl GpuPhysicsPipeline {
             state.poses.len() as u32,
             &state.poses,
             &state.shapes,
+            &state.vertex_buffers,
+            &state.index_buffers,
             &state.collision_pairs,
             &state.collision_pairs_len,
             &state.collision_pairs_indirect,

@@ -271,7 +271,7 @@ fn refit_leaves(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builti
         let leaf_pose = poses[leaf_collider];
         let leaf_shape = shapes[leaf_collider];
 
-        tree[curr_leaf_id].aabb = Aabb::from_shape(leaf_pose, leaf_shape);
+        tree[curr_leaf_id].aabb = Shape::aabb(leaf_pose, leaf_shape);
         tree[curr_leaf_id].left = leaf_collider;
     }
 }
@@ -447,7 +447,7 @@ fn refit(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_w
         let leaf_pose = poses[leaf_collider];
         let leaf_shape = shapes[leaf_collider];
 
-        tree[curr_leaf_id].aabb = Aabb::from_shape(leaf_pose, leaf_shape);
+        tree[curr_leaf_id].aabb = Shape::aabb(leaf_pose, leaf_shape);
         tree[curr_leaf_id].left = leaf_collider;
 
         // Propagate to ancestors.

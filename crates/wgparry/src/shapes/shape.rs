@@ -18,8 +18,9 @@
 //! The tag is stored as the `w` component of the first vector using bit-casting to preserve
 //! the `f32` representation while encoding a `u32` shape type identifier.
 
+use crate::bounding_volumes::WgAabb;
 use crate::queries::{WgPolygonalFeature, WgProjection, WgRay};
-use crate::shapes::{WgBall, WgCapsule, WgCuboid};
+use crate::shapes::{WgBall, WgCapsule, WgConvexPolyhedron, WgCuboid};
 use crate::{dim_shader_defs, substitute_aliases};
 use na::{vector, Vector4};
 use parry::shape::{Ball, Cuboid, Shape, ShapeType, TypedShape};
@@ -55,6 +56,8 @@ pub enum GpuShapeType {
     Polyline = 5,
     /// Triangle mesh (type ID = 6)
     TriMesh = 6,
+    /// A convex polygon or polyhedron (type ID = 7)
+    ConvexPoly = 7,
 }
 
 /// Auxiliary buffers for complex shape types like polylines and triangle meshes.
@@ -68,8 +71,7 @@ pub struct ShapeBuffers {
     /// Polyline and TriMesh shapes reference ranges within this buffer.
     /// The shape stores the start and end indices of its vertices in this buffer.
     pub vertices: Vec<Point<f32>>,
-    // NOTE: a bit weird we don't have any index buffer here but
-    //       we don't need it yet (wgsparkl has its own indexing method).
+    pub indices: Vec<u32>,
 }
 
 /// GPU-compatible shape representation using a tagged union encoded in two `Vector4<f32>` values.
@@ -193,6 +195,24 @@ impl GpuShape {
         }
     }
 
+    /// Creates a convex polyhedron definition from its vertex and index buffer anges.
+    pub fn convex_poly(
+        first_vtx_id: u32,
+        end_vtx_id: u32,
+        first_face_id: u32,
+        end_face_id: u32,
+    ) -> Self {
+        let tag = f32::from_bits(GpuShapeType::ConvexPoly as u32);
+        let a0 = f32::from_bits(first_vtx_id);
+        let a1 = f32::from_bits(end_vtx_id);
+        let b0 = f32::from_bits(first_face_id);
+        let b1 = f32::from_bits(end_face_id);
+        Self {
+            a: vector![a0, a1, 0.0, tag],
+            b: vector![b0, b1, 0.0, 0.0],
+        }
+    }
+
     /// Creates a cone shape (3D only).
     ///
     /// # Parameters
@@ -268,6 +288,33 @@ impl GpuShape {
                     base_id as u32,
                     buffers.vertices.len() as u32,
                 ]))
+            }
+            TypedShape::ConvexPolyhedron(poly) => {
+                let first_vtx_id = buffers.vertices.len();
+                let first_face_id = buffers.indices.len();
+                let all_idx = poly.vertices_adj_to_face();
+
+                buffers.vertices.extend_from_slice(poly.points());
+                for face in poly.faces() {
+                    let id = face.first_vertex_or_edge as usize;
+
+                    if face.num_vertices_or_edges < 3 {
+                        println!("found convex poly with degenerate faces?")
+                    } else {
+                        buffers.indices.push(all_idx[id]);
+                        buffers.indices.push(all_idx[id + 1]);
+                        buffers.indices.push(all_idx[id + 2]);
+                    }
+                }
+
+                let end_vtx_id = buffers.vertices.len();
+                let end_face_id = buffers.indices.len();
+                Some(Self::convex_poly(
+                    first_vtx_id as u32,
+                    end_vtx_id as u32,
+                    first_face_id as u32,
+                    end_face_id as u32,
+                ))
             }
             // HACK: we currently emulate heightfields as trimeshes or polylines
             #[cfg(feature = "dim2")]
@@ -405,6 +452,8 @@ struct WgCylinder;
         WgCuboid,
         WgCylinder,
         WgPolygonalFeature,
+        WgConvexPolyhedron,
+        WgAabb,
     ),
     src = "shape.wgsl",
     src_fn = "substitute_aliases",

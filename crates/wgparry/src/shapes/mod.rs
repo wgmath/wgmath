@@ -5,6 +5,7 @@
 
 mod ball;
 mod capsule;
+mod convex_polyhedron;
 mod cuboid;
 mod segment;
 mod tetrahedron;
@@ -18,6 +19,7 @@ mod shape;
 
 pub use ball::*;
 pub use capsule::*;
+pub use convex_polyhedron::*;
 pub use cuboid::*;
 pub use segment::*;
 pub use shape::*;
