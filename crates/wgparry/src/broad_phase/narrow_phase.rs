@@ -11,7 +11,7 @@
 //! 4. Outputs indexed contacts for the physics solver.
 
 use crate::bounding_volumes::WgAabb;
-use crate::math::GpuSim;
+use crate::math::{GpuSim, Point, Vector};
 use crate::queries::{GpuIndexedContact, WgContact};
 use crate::shapes::{GpuShape, WgShape};
 use crate::{dim_shader_defs, substitute_aliases};
@@ -76,6 +76,8 @@ impl WgNarrowPhase {
         _num_colliders: u32,
         poses: &GpuVector<GpuSim>,
         shapes: &GpuVector<GpuShape>,
+        vertices: &GpuVector<Point<f32>>,
+        indices: &GpuVector<u32>,
         collision_pairs: &GpuVector<[u32; 2]>,
         collision_pairs_len: &GpuScalar<u32>,
         collision_pairs_indirect: &GpuScalar<DispatchIndirectArgs>,
@@ -96,6 +98,8 @@ impl WgNarrowPhase {
                 contacts.buffer(),
                 contacts_len.buffer(),
             ])
+            .bind_at(1, [])
+            .bind_at(2, [(vertices.buffer(), 0), (indices.buffer(), 1)])
             .dispatch_indirect(collision_pairs_indirect.buffer());
 
         KernelDispatch::new(device, pass, &self.init_indirect_args)

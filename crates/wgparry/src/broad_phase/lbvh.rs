@@ -1,5 +1,5 @@
 use crate::bounding_volumes::WgAabb;
-use crate::math::GpuSim;
+use crate::math::{GpuSim, Point, Vector};
 use crate::shapes::{GpuShape, WgShape};
 use crate::utils::{RadixSort, RadixSortWorkspace};
 use crate::{dim_shader_defs, substitute_aliases};
@@ -208,6 +208,8 @@ impl Lbvh {
         state: &mut LbvhState,
         colliders_len: u32,
         poses: &GpuVector<GpuSim>,
+        vertex_buffers: &GpuVector<Point<f32>>,
+        index_buffers: &GpuVector<u32>,
         shapes: &GpuVector<GpuShape>,
         num_shapes: &GpuScalar<u32>,
     ) {
@@ -222,6 +224,9 @@ impl Lbvh {
         let sorted_morton_keys = (state.sorted_morton_keys.buffer(), 7);
         let sorted_colliders = (state.sorted_colliders.buffer(), 8);
         let tree = (state.tree.buffer(), 9);
+
+        let vertices = (vertex_buffers.buffer(), 0);
+        let indices = (index_buffers.buffer(), 1);
 
         // Dispatch everything.
         KernelDispatch::new(device, pass, &self.shaders.compute_domain)
@@ -250,6 +255,8 @@ impl Lbvh {
 
         KernelDispatch::new(device, pass, &self.shaders.refit_leaves)
             .bind_at(0, [num_colliders, tree, poses, shapes, sorted_colliders])
+            .bind_at(1, [])
+            .bind_at(2, [vertices])
             .dispatch(colliders_len.div_ceil(Self::WORKGROUP_SIZE));
 
         KernelDispatch::new(device, pass, &self.shaders.refit_internal)
@@ -354,6 +361,8 @@ mod test {
         let gpu_poses_data: Vec<GpuSim> = poses.iter().map(|p| (*p).into()).collect();
         let shapes: Vec<_> = vec![GpuShape::ball(0.5); LEN as usize];
 
+        let gpu_vertices = GpuVector::encase(gpu.device(), &[], storage);
+        let gpu_indices = GpuVector::init(gpu.device(), &[], storage);
         let gpu_poses = GpuVector::init(gpu.device(), &gpu_poses_data, storage);
         let gpu_shapes = GpuVector::init(gpu.device(), &shapes, storage);
         let gpu_num_shapes = GpuScalar::init(
@@ -375,6 +384,8 @@ mod test {
             &mut state,
             LEN,
             &gpu_poses,
+            &gpu_vertices,
+            &gpu_indices,
             &gpu_shapes,
             &gpu_num_shapes,
         );

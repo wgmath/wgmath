@@ -18,7 +18,7 @@ use wgebra::{WgSim2, WgSim3};
 
 #[derive(Shader)]
 #[shader(
-    derive(WgSim3, WgSim2, WgShape),
+    derive(WgSim3, WgSim2),
     src = "./aabb.wgsl",
     src_fn = "substitute_aliases",
     shader_defs = "dim_shader_defs"
@@ -26,7 +26,6 @@ use wgebra::{WgSim2, WgSim3};
 /// GPU shader for computing and manipulating Axis-Aligned Bounding Boxes.
 ///
 /// This shader provides functions for:
-/// - Computing AABBs from shapes.
 /// - AABB overlap testing.
 /// - AABB merging and manipulation.
 pub struct WgAabb;

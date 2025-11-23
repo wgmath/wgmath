@@ -132,6 +132,7 @@ pub struct GpuBodySet {
     //       is from wgsparkl which has its own way of storing indices.
     pub(crate) shapes_local_vertex_buffers: GpuVector<Point<f32>>,
     pub(crate) shapes_vertex_buffers: GpuVector<Point<f32>>,
+    pub(crate) shapes_index_buffers: GpuVector<u32>,
     pub(crate) shapes_vertex_collider_id: GpuVector<u32>, // NOTE: this is a bit of a hack for wgsparkl
 }
 
@@ -299,6 +300,11 @@ impl GpuBodySet {
                 device,
                 // TODO: init in world-space directly?
                 &shape_buffers.vertices,
+                BufferUsages::STORAGE,
+            ),
+            shapes_index_buffers: GpuVector::init(
+                device,
+                &shape_buffers.indices,
                 BufferUsages::STORAGE,
             ),
             shapes_vertex_collider_id: GpuVector::init(
