@@ -20,7 +20,6 @@ use naga_oil::compose::ComposerError;
 use nalgebra::Vector4;
 use rapier::dynamics::{ImpulseJointSet, RigidBodySet};
 use rapier::geometry::ColliderSet;
-use rapier::math::Vector;
 use std::collections::HashMap;
 use std::time::Duration;
 use wgcore::gpu::GpuInstance;
@@ -209,6 +208,8 @@ impl GpuPhysicsState {
         //       them empty. This won’t have any performance impact.
         if shape_buffers.vertices.is_empty() {
             shape_buffers.vertices.push(Point::origin());
+        }
+        if shape_buffers.indices.is_empty() {
             shape_buffers.indices.extend_from_slice(&[0; 3]);
         }
 
@@ -462,7 +463,6 @@ impl GpuPhysicsPipeline {
             state.poses.len() as u32,
             &state.poses,
             &state.vertex_buffers,
-            &state.index_buffers,
             &state.shapes,
             &state.num_shapes,
         );

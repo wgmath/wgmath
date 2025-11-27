@@ -11,7 +11,6 @@
 //! - **Fast overlap test**: Just compare min/max coordinates (6 comparisons in 3D).
 //! - **Fast to compute**: For most shapes, AABB computation is very efficient.
 
-use crate::shapes::WgShape;
 use crate::{dim_shader_defs, substitute_aliases};
 use wgcore::{test_shader_compilation, Shader};
 use wgebra::{WgSim2, WgSim3};

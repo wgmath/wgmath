@@ -26,7 +26,7 @@ struct Triangle {
 
 fn is_proj_inside(pt: Vector, proj: Vector) -> bool {
 #if DIM == 2
-        return proj == pt;
+        return all(proj == pt);
 #else
         // TODO: is this acceptable to assume the point is inside of the
         // triangle if it is close enough?
@@ -45,6 +45,13 @@ struct ProjectionInfo {
     feature: u32,
     params: vec3<f32>,
 }
+
+#if DIM == 2
+// TODO: share this from another module.
+fn perp(a: vec2<f32>, b: vec2<f32>) -> f32 {
+    return a.x * b.y - a.y * b.x;
+}
+#endif
 
 // Checks on which edge voronoï region the point is.
 // For 2D and 3D, it uses explicit cross/perp products that are
@@ -67,35 +74,35 @@ fn stable_check_edges_voronoi(
     let n = perp(ab, ac);
     let vc = n * perp(ab, ap);
     if vc < 0.0 && ab_ap >= 0.0 && ab_bp <= 0.0 {
-        return ProjectionInfo(AB, Vector());
+        return ProjectionInfo(AB, vec3());
     }
 
     let vb = -n * perp(ac, cp);
     if vb < 0.0 && ac_ap >= 0.0 && ac_cp <= 0.0 {
-        return ProjectionInfo(AC, Vector());
+        return ProjectionInfo(AC, vec3());
     }
 
     let va = n * perp(bc, bp);
     if va < 0.0 && ac_bp - ab_bp >= 0.0 && ab_cp - ac_cp >= 0.0 {
-        return ProjectionInfo(BC, Vector());
+        return ProjectionInfo(BC, vec3());
     }
 
-    ProjectionInfo(0, va, vb, vc)
+    return ProjectionInfo(FACE_CW, vec3(va, vb, vc));
 #else
     let n = cross(ab, ac);
     let vc = dot(n, cross(ab, ap));
     if vc < 0.0 && ab_ap >= 0.0 && ab_bp <= 0.0 {
-        return ProjectionInfo(AB, Vector());
+        return ProjectionInfo(AB, vec3());
     }
 
     let vb = -dot(n, cross(ac, cp));
     if vb < 0.0 && ac_ap >= 0.0 && ac_cp <= 0.0 {
-        return ProjectionInfo(AC, Vector());
+        return ProjectionInfo(AC, vec3());
     }
 
     let va = dot(n, cross(bc, bp));
     if va < 0.0 && ac_bp - ab_bp >= 0.0 && ab_cp - ac_cp >= 0.0 {
-        return ProjectionInfo(BC, Vector());
+        return ProjectionInfo(BC, vec3());
     }
 
     if dot(n, ap) >= 0.0 {
@@ -278,6 +285,41 @@ fn local_support_point(shape: Triangle, dir: Vector) -> Vector {
 }
 
 fn support_face(shape: Triangle, dir: Vector) -> Feat::PolygonalFeature {
+#if DIM == 2
+    var result = Feat::PolygonalFeature();
+    let tab = shape.b - shape.a;
+    let tbc = shape.c - shape.b;
+    let tca = shape.a - shape.c;
+    // CCW normals
+    let nab = dot(dir, vec2(tab.y, -tab.x));
+    let nbc = dot(dir, vec2(tbc.y, -tbc.x));
+    let nca = dot(dir, vec2(tca.y, -tca.x));
+
+    if nab > nbc {
+        if nab > nca {
+            // AB is the support face.
+            result.vertices[0] = shape.a;
+            result.vertices[1] = shape.b;
+        } else {
+            // CA is the support face.
+            result.vertices[0] = shape.c;
+            result.vertices[1] = shape.a;
+        }
+    } else {
+        if nbc > nca {
+            // BC is the support face.
+            result.vertices[0] = shape.b;
+            result.vertices[1] = shape.c;
+        } else {
+            // CA is the support face.
+            result.vertices[0] = shape.c;
+            result.vertices[1] = shape.a;
+        }
+    }
+
+    result.num_vertices = 2;
+    return result;
+#else
     // Just return the whole triangle.
     var result = Feat::PolygonalFeature();
     result.vertices[0] = shape.a;
@@ -285,4 +327,5 @@ fn support_face(shape: Triangle, dir: Vector) -> Feat::PolygonalFeature {
     result.vertices[2] = shape.c;
     result.num_vertices = 3;
     return result;
+#endif
 }

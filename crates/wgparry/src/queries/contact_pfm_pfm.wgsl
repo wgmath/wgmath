@@ -23,12 +23,22 @@ fn contact_support_map_support_map(
     g2: Shape::Shape,
     prediction: f32,
 ) -> Gjk::GjkResult {
+    #if DIM == 2
+    let x_axis = vec2(1.0, 0.0);
+    #else
+    let x_axis = vec3(1.0, 0.0, 0.0);
+    #endif
+
+#if DIM == 2
+    var dir = pose12.translation;
+#else
     var dir = pose12.translation_scale.xyz;
+#endif
     var dir_len_sq = dot(dir, dir);
     if dir_len_sq > CsoPoint::FLT_EPS * CsoPoint::FLT_EPS {
         dir /= sqrt(dir_len_sq);
     } else {
-        dir = vec3(1.0, 0.0, 0.0);
+        dir = x_axis;
     }
 
     let cso_point = Gjk::cso_point_from_shapes(pose12, g1, g2, dir);
@@ -46,7 +56,7 @@ fn contact_support_map_support_map(
     }
 
     // Everything failed
-    return Gjk::gjk_result_no_intersection(vec3(1.0, 0.0, 0.0));
+    return Gjk::gjk_result_no_intersection(x_axis);
 }
 
 fn contact_manifold_pfm_pfm(
@@ -103,7 +113,7 @@ fn contact_manifold_pfm_pfm(
             manifold.normal_a = local_n1;
             return manifold;
         }
-        default: { /* No collitions. */ }
+        default: { /* No collisions. */ }
     }
 
     return ContactManifold::ContactManifold();

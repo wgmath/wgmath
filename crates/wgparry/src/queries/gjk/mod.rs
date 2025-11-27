@@ -1,7 +1,10 @@
 use crate::queries::WgProjection;
-use crate::shapes::{WgSegment, WgShape, WgTetrahedron, WgTriangle};
+use crate::shapes::{WgSegment, WgShape, WgTriangle};
 use crate::{dim_shader_defs, substitute_aliases};
 use wgcore::Shader;
+
+#[cfg(feature = "dim3")]
+use crate::shapes::WgTetrahedron;
 
 #[derive(Shader)]
 #[shader(
@@ -21,20 +24,44 @@ pub struct WgCsoPoint;
 pub struct WgGjk;
 
 #[derive(Shader)]
-#[shader(
-    derive(WgCsoPoint, WgSegment, WgTriangle, WgTetrahedron, WgProjection),
-    src = "voronoi_simplex3.wgsl",
-    shader_defs = "dim_shader_defs",
-    src_fn = "substitute_aliases"
+#[cfg_attr(
+    feature = "dim2",
+    shader(
+        derive(WgCsoPoint, WgSegment, WgTriangle, WgProjection),
+        src = "voronoi_simplex2.wgsl",
+        shader_defs = "dim_shader_defs",
+        src_fn = "substitute_aliases"
+    )
+)]
+#[cfg_attr(
+    feature = "dim3",
+    shader(
+        derive(WgCsoPoint, WgSegment, WgTriangle, WgTetrahedron, WgProjection),
+        src = "voronoi_simplex3.wgsl",
+        shader_defs = "dim_shader_defs",
+        src_fn = "substitute_aliases"
+    )
 )]
 pub struct WgVoronoiSimplex;
 
 #[derive(Shader)]
-#[shader(
-    derive(WgCsoPoint, WgVoronoiSimplex, WgShape, WgGjk),
-    src = "epa3.wgsl",
-    shader_defs = "dim_shader_defs",
-    src_fn = "substitute_aliases"
+#[cfg_attr(
+    feature = "dim2",
+    shader(
+        derive(WgCsoPoint, WgVoronoiSimplex, WgShape, WgGjk),
+        src = "epa2.wgsl",
+        shader_defs = "dim_shader_defs",
+        src_fn = "substitute_aliases"
+    )
+)]
+#[cfg_attr(
+    feature = "dim3",
+    shader(
+        derive(WgCsoPoint, WgVoronoiSimplex, WgShape, WgGjk),
+        src = "epa3.wgsl",
+        shader_defs = "dim_shader_defs",
+        src_fn = "substitute_aliases"
+    )
 )]
 pub struct WgEpa;
 

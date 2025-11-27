@@ -32,8 +32,6 @@ fn init(pt: CsoPoint::CsoPoint) -> VoronoiSimplex {
     let dim = 0u;
     return VoronoiSimplex(prev_vertices, prev_proj, prev_dim, vertices, proj, dim);
 }
-// TODO: all these free functions should be methods (not supported by wgsl).
-
 
 fn reset(s: VoronoiSimplex, pt: CsoPoint::CsoPoint) -> VoronoiSimplex {
     return VoronoiSimplex(s.prev_vertices, s.prev_proj, 0u, array(pt, pt, pt, pt), s.proj, 0u);
