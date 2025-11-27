@@ -55,7 +55,7 @@ fn debug_compute_aabb(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     if i < arrayLength(&debug_mins) {
         let pose1 = poses[i];
         let shape1 = shapes[i];
-        var aabb1 = Aabb::from_shape(pose1, shape1);
+        var aabb1 = Shape::aabb(pose1, shape1);
         debug_mins[i] = aabb1.mins;
         debug_maxs[i] = aabb1.maxs;
     }
@@ -73,7 +73,7 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
         let pose1 = poses[i];
         let shape1 = shapes[i];
 
-        var aabb1 = Aabb::from_shape(pose1, shape1);
+        var aabb1 = Shape::aabb(pose1, shape1);
         let prediction = 0.1;
         let dilation = Vector(prediction); // TODO: should be configurable.
         aabb1.mins -= dilation;
@@ -82,7 +82,7 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
         for (var j = i + 1u; j < num_colliders; j++) {
             let pose2 = poses[j];
             let shape2 = shapes[j];
-            let aabb2 = Aabb::from_shape(pose2, shape2);
+            let aabb2 = Shape::aabb(pose2, shape2);
 
             if Aabb::check_intersection(aabb1, aabb2) {
                 let target_pair_index = atomicAdd(&collision_pairs_len, 1u);

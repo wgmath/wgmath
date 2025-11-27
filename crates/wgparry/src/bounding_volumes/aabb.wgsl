@@ -5,7 +5,6 @@
 //! non-intersecting pairs.
 //!
 //! Key operations:
-//! - from_shape: Computes tight AABB for any shape type
 //! - check_intersection: Fast AABB-AABB overlap test
 //! - merge: Computes bounding AABB of two AABBs
 
@@ -27,65 +26,6 @@ struct Aabb {
     mins: Vector,
     /// Maximum corner (largest coordinates along each axis).
     maxs: Vector
-}
-
-/// Creates an AABB from a transformed shape.
-fn from_shape(pose: Transform, shape: Shape::Shape) -> Aabb {
-    let ty = Shape::shape_type(shape);
-    if ty == Shape::SHAPE_TYPE_BALL {
-        let ball = Shape::to_ball(shape);
-#if DIM == 2
-        let tra = pose.translation;
-        let rad = ball.radius * pose.scale;
-#else
-        let tra = pose.translation_scale.xyz;
-        let rad = ball.radius * pose.translation_scale.w;
-#endif
-
-        return Aabb(
-            tra - Vector(rad),
-            tra + Vector(rad)
-        );
-    }
-
-    if ty == Shape::SHAPE_TYPE_CUBOID {
-        let cuboid = Shape::to_cuboid(shape);
-        let local_aabb = Aabb(-cuboid.halfExtents, cuboid.halfExtents);
-        return transform(local_aabb, pose);
-    }
-
-    if ty == Shape::SHAPE_TYPE_CAPSULE {
-        let capsule = Shape::to_capsule(shape);
-        let aa = Pose::mulPt(pose, capsule.segment.a);
-        let bb = Pose::mulPt(pose, capsule.segment.b);
-        return Aabb(
-            min(aa, bb) - Vector(capsule.radius),
-            max(aa, bb) + Vector(capsule.radius),
-        );
-    }
-
-#if DIM == 3
-    if ty == Shape::SHAPE_TYPE_CONE {
-        let cone = Shape::to_cone(shape);
-        let local_aabb = Aabb(
-            -vec3(cone.radius, cone.half_height, cone.radius),
-            vec3(cone.radius, cone.half_height, cone.radius),
-        );
-        return transform(local_aabb, pose);
-    }
-
-    if ty == Shape::SHAPE_TYPE_CYLINDER {
-        let cylinder = Shape::to_cylinder(shape);
-        let local_aabb = Aabb(
-            -vec3(cylinder.radius, cylinder.half_height, cylinder.radius),
-            vec3(cylinder.radius, cylinder.half_height, cylinder.radius),
-        );
-        return transform(local_aabb, pose);
-    }
-#endif
-
-    // TODO: not implemented.
-    return Aabb();
 }
 
 /// Are the two AABBs intersecting?

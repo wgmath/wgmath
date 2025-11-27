@@ -16,6 +16,7 @@ use crate::SimulationState;
 use kiss3d::prelude::InstanceData;
 #[cfg(feature = "dim2")]
 use kiss3d::prelude::{PlanarInstanceData, PlanarSceneNode};
+use kiss3d::procedural::RenderMesh;
 #[cfg(feature = "dim3")]
 use kiss3d::scene::SceneNode;
 #[cfg(feature = "dim3")]
@@ -54,17 +55,10 @@ impl RenderContext {
 
 /// Set up a simple scene using instancing for efficient rendering
 pub async fn setup_graphics(window: &mut Window, phys: &SimulationState) -> RenderContext {
-    let colors = [
-        Point3::new(124.0 / 255.0, 144.0 / 255.0, 1.0),
-        Point3::new(8.0 / 255.0, 144.0 / 255.0, 1.0),
-        Point3::new(124.0 / 255.0, 7.0 / 255.0, 1.0),
-        Point3::new(124.0 / 255.0, 144.0 / 255.0, 7.0 / 255.0),
-        Point3::new(200.0 / 255.0, 37.0 / 255.0, 1.0),
-        Point3::new(124.0 / 255.0, 230.0 / 255.0, 25.0 / 255.0),
-    ];
     let fixed_color = Point3::new(0.6, 0.6, 0.6);
 
     let mut instances = HashMap::new();
+    let mut singletons = vec![];
 
     for (i, (_, co)) in phys.colliders.iter().enumerate() {
         let shape = co.shape();
@@ -72,7 +66,16 @@ pub async fn setup_graphics(window: &mut Window, phys: &SimulationState) -> Rend
         let color = if is_fixed {
             fixed_color
         } else {
-            colors[i % colors.len()]
+            let coeff = (1.0 - 0.15 * (i % 5) as f32) / 255.0;
+            match shape.shape_type() {
+                ShapeType::Ball => Point3::new(55.0, 126.0, 184.0) * coeff,
+                ShapeType::Cuboid => Point3::new(55.0, 126.0, 34.0) * coeff,
+                ShapeType::Cylinder => Point3::new(140.0, 86.0, 75.0) * coeff,
+                ShapeType::Cone => Point3::new(255.0, 217.0, 47.0) * coeff,
+                ShapeType::Capsule => Point3::new(204.0, 121.0, 167.0) * coeff,
+                ShapeType::ConvexPolyhedron => Point3::new(228.0, 26.0, 28.0) * coeff,
+                _ => Point3::new(255.0, 127.0, 0.0) * coeff,
+            }
         };
 
         match shape.shape_type() {
@@ -97,12 +100,7 @@ pub async fn setup_graphics(window: &mut Window, phys: &SimulationState) -> Rend
                 let ball = shape.as_ball().unwrap();
                 instanced_node.entries.push(InstancedNodeEntry {
                     index: i,
-                    color: [
-                        (color.x + 0.4) % 1.0, // Shift the color palette so that balls are colored differently than cubes
-                        (color.y + 0.4) % 1.0, // Shift the color palette so that balls are colored differently than cubes
-                        (color.z + 0.4) % 1.0, // Shift the color palette so that balls are colored differently than cubes
-                        1.0,
-                    ],
+                    color: [color.x, color.y, color.z, 1.0],
                     scale: [ball.radius * 2.0; DIM],
                 })
             }
@@ -182,12 +180,33 @@ pub async fn setup_graphics(window: &mut Window, phys: &SimulationState) -> Rend
                     scale: [c.radius * 2.0, c.segment.length(), c.radius * 2.0],
                 })
             }
+            ShapeType::ConvexPolyhedron => {
+                let poly = shape.as_convex_polyhedron().unwrap();
+                let (vtx, idx) = poly.to_trimesh();
+                let trimesh = rapier::parry::shape::TriMesh::new(vtx, idx).unwrap();
+                let mut render = RenderMesh::from(trimesh);
+                // Use face normals as vertex normals for flat shading.
+                render.replicate_vertices();
+                render.recompute_normals();
+                let node = window.add_render_mesh(render, Vector3::repeat(1.0));
+                let mut singleton = InstancedNode {
+                    node,
+                    entries: vec![],
+                    data: vec![],
+                };
+                singleton.entries.push(InstancedNodeEntry {
+                    index: i,
+                    color: [color.x, color.y, color.z, 1.0],
+                    scale: [1.0, 1.0, 1.0],
+                });
+                singletons.push(singleton);
+            }
             _ => todo!(),
         }
     }
 
     RenderContext {
-        instances: instances.into_values().collect(),
+        instances: (instances.into_values().chain(singletons.into_iter())).collect(),
     }
 }
 

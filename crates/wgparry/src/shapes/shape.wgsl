@@ -26,6 +26,8 @@
 #import wgparry::cylinder as Cyl;
 #import wgparry::cone as Con;
 #import wgparry::polygonal_feature as Feat
+#import wgparry::convex as Convex;
+#import wgparry::bounding_volumes::aabb as Aabb;
 
 #define_import_path wgparry::shape
 
@@ -37,6 +39,7 @@ const SHAPE_TYPE_CONE: u32 = 3;
 const SHAPE_TYPE_CYLINDER: u32 = 4;
 const SHAPE_TYPE_POLYLINE: u32 = 5;
 const SHAPE_TYPE_TRIMESH: u32 = 6;
+const SHAPE_TYPE_CONVEX_POLY: u32 = 7;
 
 /// A generic shape that can represent any concrete shape type.
 ///
@@ -115,6 +118,17 @@ fn to_cuboid(shape: Shape) -> Cub::Cuboid {
         return Cyl::Cylinder(shape.a.x, shape.a.y);
     }
 #endif
+
+fn to_convex_poly(shape: Shape) -> Convex::ConvexPolyhedron {
+    // Convex polyhedron layout:
+    //     vec4(first_vtx_id, end_vtx_id, _, shape_type)
+    //     vec4(first_tri_id, end_tri_id, _, _)
+    let first_vtx_id = bitcast<u32>(shape.a.x);
+    let end_vtx_id = bitcast<u32>(shape.a.y);
+    let first_tri_id = bitcast<u32>(shape.b.x);
+    let end_tri_id = bitcast<u32>(shape.b.y);
+    return Convex::ConvexPolyhedron(first_vtx_id, end_vtx_id, first_tri_id, end_tri_id);
+}
 
 
 /*
@@ -247,6 +261,11 @@ fn local_support_point(shape: Shape, dir: Vector) -> Vector {
         return Cyl::local_support_point(to_cylinder(shape), dir);
     }
 #endif
+
+    if ty == SHAPE_TYPE_CONVEX_POLY {
+        return Convex::local_support_point(to_convex_poly(shape), dir);
+    }
+
     return Vector();
 }
 
@@ -269,12 +288,17 @@ fn support_face(shape: Shape, dir: Vector) -> Feat::PolygonalFeature {
         return Cyl::support_face(to_cylinder(shape), dir);
     }
 #endif
+
+    if ty == SHAPE_TYPE_CONVEX_POLY {
+        return Convex::support_face(to_convex_poly(shape), dir);
+    }
+
     return Feat::PolygonalFeature();
 }
 
 fn pfm_subshape(shape: Shape) -> PfmSubShape {
     let ty = shape_type(shape);
-    if ty == SHAPE_TYPE_CUBOID || ty == SHAPE_TYPE_CONE || ty == SHAPE_TYPE_CYLINDER {
+    if ty == SHAPE_TYPE_CUBOID || ty == SHAPE_TYPE_CONE || ty == SHAPE_TYPE_CYLINDER || ty == SHAPE_TYPE_CONVEX_POLY {
         // No subshape, return the original shape itself.
         return PfmSubShape(shape, 0.0, true);
     }
@@ -293,4 +317,69 @@ fn pfm_subshape(shape: Shape) -> PfmSubShape {
 
     // Not a PFM.
     return PfmSubShape(shape, 0.0, false);
+}
+
+
+/// Creates an AABB from a transformed shape.
+fn aabb(pose: Transform, shape: Shape) -> Aabb::Aabb {
+    let ty = shape_type(shape);
+    if ty == SHAPE_TYPE_BALL {
+        let ball = to_ball(shape);
+#if DIM == 2
+        let tra = pose.translation;
+        let rad = ball.radius * pose.scale;
+#else
+        let tra = pose.translation_scale.xyz;
+        let rad = ball.radius * pose.translation_scale.w;
+#endif
+
+        return Aabb::Aabb(
+            tra - Vector(rad),
+            tra + Vector(rad)
+        );
+    }
+
+    if ty == SHAPE_TYPE_CUBOID {
+        let cuboid = to_cuboid(shape);
+        let local_aabb = Aabb::Aabb(-cuboid.halfExtents, cuboid.halfExtents);
+        return Aabb::transform(local_aabb, pose);
+    }
+
+    if ty == SHAPE_TYPE_CAPSULE {
+        let capsule = to_capsule(shape);
+        let aa = Pose::mulPt(pose, capsule.segment.a);
+        let bb = Pose::mulPt(pose, capsule.segment.b);
+        return Aabb::Aabb(
+            min(aa, bb) - Vector(capsule.radius),
+            max(aa, bb) + Vector(capsule.radius),
+        );
+    }
+
+#if DIM == 3
+    if ty == SHAPE_TYPE_CONE {
+        let cone = to_cone(shape);
+        let local_aabb = Aabb::Aabb(
+            -vec3(cone.radius, cone.half_height, cone.radius),
+            vec3(cone.radius, cone.half_height, cone.radius),
+        );
+        return Aabb::transform(local_aabb, pose);
+    }
+
+    if ty == SHAPE_TYPE_CYLINDER {
+        let cylinder = to_cylinder(shape);
+        let local_aabb = Aabb::Aabb(
+            -vec3(cylinder.radius, cylinder.half_height, cylinder.radius),
+            vec3(cylinder.radius, cylinder.half_height, cylinder.radius),
+        );
+        return Aabb::transform(local_aabb, pose);
+    }
+#endif
+
+    if ty == SHAPE_TYPE_CONVEX_POLY {
+        let poly = to_convex_poly(shape);
+        let local_aabb = Convex::aabb(poly);
+        return Aabb::transform(local_aabb, pose);
+    }
+
+    return Aabb::Aabb();
 }
