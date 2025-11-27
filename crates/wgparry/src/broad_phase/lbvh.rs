@@ -226,7 +226,6 @@ impl Lbvh {
         let tree = (state.tree.buffer(), 9);
 
         let vertices = (vertex_buffers.buffer(), 0);
-        let indices = (index_buffers.buffer(), 1);
 
         // Dispatch everything.
         KernelDispatch::new(device, pass, &self.shaders.compute_domain)
