@@ -359,8 +359,7 @@ mod test {
         let gpu_poses_data: Vec<GpuSim> = poses.iter().map(|p| (*p).into()).collect();
         let shapes: Vec<_> = vec![GpuShape::ball(0.5); LEN as usize];
 
-        let gpu_vertices = GpuVector::encase(gpu.device(), &[], storage);
-        let gpu_indices = GpuVector::init(gpu.device(), &[], storage);
+        let gpu_vertices = GpuVector::encase(gpu.device(), [], storage);
         let gpu_poses = GpuVector::init(gpu.device(), &gpu_poses_data, storage);
         let gpu_shapes = GpuVector::init(gpu.device(), &shapes, storage);
         let gpu_num_shapes = GpuScalar::init(
@@ -383,7 +382,6 @@ mod test {
             LEN,
             &gpu_poses,
             &gpu_vertices,
-            &gpu_indices,
             &gpu_shapes,
             &gpu_num_shapes,
         );
