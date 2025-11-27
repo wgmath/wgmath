@@ -39,6 +39,17 @@ impl PhysicsContext {
     }
 }
 
+pub fn render_compiling_message(window: &mut Window) {
+    window.draw_ui(|ctx| {
+        kiss3d::egui::Window::new("Settings").show(ctx, |ui| {
+            ui.colored_label(
+                kiss3d::egui::Color32::from_rgb(100, 180, 255),
+                "⏳ COMPILING SHADERS...\nThe app will freeze for a few seconds.\n\nIf nothing happens after a minute or two, check the dev console for an error.",
+            );
+        });
+    });
+}
+
 pub fn render_ui(
     window: &mut Window,
     builders: &SimulationBuilders,

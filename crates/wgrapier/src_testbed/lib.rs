@@ -16,7 +16,7 @@ mod ui;
 
 use backend::{BackendType, CpuBackend, GpuBackend, PhysicsBackend};
 use graphics::{setup_graphics, update_instances, RenderContext};
-use ui::{render_ui, PhysicsContext, RunState};
+use ui::{render_compiling_message, render_ui, PhysicsContext, RunState};
 
 #[cfg(feature = "dim2")]
 use kiss3d::camera::FixedView;
@@ -72,31 +72,7 @@ impl Testbed {
         let mut window = Window::new("wgrapier demos");
         window.set_light(Light::StickToCamera);
 
-        // Try to initialize GPU, fallback to CPU if it fails
-        let gpu = match GpuInstance::without_gl().await {
-            Ok(gpu) => Some(gpu),
-            Err(e) => {
-                // GPU initialization failed, force CPU backend
-                self.gpu_init_error = Some(format!(
-                    "GPU backend not available, initialization failed:\n\"{}\"\n",
-                    e
-                ));
-                self.backend_type = BackendType::Cpu;
-                None
-            }
-        };
-
-        let phys = (self.builders[0].1)();
-        let mut physics = setup_physics(
-            gpu.as_ref(),
-            &phys,
-            self.backend_type,
-            &mut self.gpu_init_error,
-            &mut self.cached_gpu_pipeline,
-        )
-        .await;
-        let mut render_ctx = setup_graphics(&mut window, &phys).await;
-
+        // Set up cameras first so we can render the "compiling" message
         #[cfg(feature = "dim2")]
         let (mut camera2d, mut camera3d) = {
             let mut sidescroll = Sidescroll::default();
@@ -111,6 +87,50 @@ impl Testbed {
             );
             (PlanarFixedView::new(), arc_ball)
         };
+
+        // Try to initialize GPU, fallback to CPU if it fails
+        let gpu = match GpuInstance::without_gl().await {
+            Ok(gpu) => Some(gpu),
+            Err(e) => {
+                // GPU initialization failed, force CPU backend
+                self.gpu_init_error = Some(format!(
+                    "GPU backend not available, initialization failed:\n\"{}\"\n",
+                    e
+                ));
+                self.backend_type = BackendType::Cpu;
+                None
+            }
+        };
+
+        // Check if we need to compile shaders (GPU backend without cached pipeline).
+        let needs_shader_compilation = matches!(self.backend_type, BackendType::Gpu { .. })
+            && self.cached_gpu_pipeline.is_none();
+
+        // Render a "compiling shaders" message before doing the actual compilation.
+        // The app will freeze during the compilation, so we need to draw this before.
+        if needs_shader_compilation {
+            // Don’t run a single render pass. It can take a few frames for the window/canvas to
+            // show up so we don’t want the app to freeze before the message is actually visible.
+            for _ in 0..100 {
+                window
+                    .render_with_cameras(&mut camera3d, &mut camera2d)
+                    .await;
+                render_compiling_message(&mut window);
+            }
+        }
+
+        let phys = (self.builders[0].1)();
+        let mut physics = setup_physics(
+            gpu.as_ref(),
+            &phys,
+            self.backend_type,
+            &mut self.gpu_init_error,
+            &mut self.cached_gpu_pipeline,
+        )
+        .await;
+        println!("There");
+
+        let mut render_ctx = setup_graphics(&mut window, &phys).await;
 
         while window
             .render_with_cameras(&mut camera3d, &mut camera2d)
