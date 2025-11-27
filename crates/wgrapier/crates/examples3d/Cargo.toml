@@ -13,7 +13,7 @@ oorandom = "11"
 wgrapier_testbed3d = { path = "../wgrapier_testbed3d" }
 wgrapier3d = { path = "../wgrapier3d" }
 rapier3d = "0.30.0"
-kiss3d = "0.37.1"
+kiss3d = "0.37.2"
 
 [[bin]]
 name = "all_examples3"

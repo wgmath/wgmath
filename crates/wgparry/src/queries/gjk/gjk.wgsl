@@ -143,7 +143,11 @@ fn closest_points(
         }
     }
 
+#if DIM == 2
+    return gjk_result_no_intersection(Vector(1.0, 0.0));
+#else
     return gjk_result_no_intersection(Vector(1.0, 0.0, 0.0));
+#endif
 }
 
 fn result(simplex: VoronoiSimplex::VoronoiSimplex, prev: bool) -> array<Vector, 2> {

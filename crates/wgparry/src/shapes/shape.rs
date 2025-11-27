@@ -20,16 +20,17 @@
 
 use crate::bounding_volumes::WgAabb;
 use crate::queries::{WgPolygonalFeature, WgProjection, WgRay};
-use crate::shapes::{WgBall, WgCapsule, WgConvexPolyhedron, WgCuboid, WgTriMesh, WgTriangle};
+use crate::shapes::{
+    WgBall, WgCapsule, WgConvexPolyhedron, WgCuboid, WgPolyline, WgTriMesh, WgTriangle,
+};
 use crate::{dim_shader_defs, substitute_aliases};
 use na::{vector, Vector4};
 use parry::bounding_volume::Aabb;
-use parry::partitioning::{BvhNodeWide, TraversalAction};
 use parry::shape::{Ball, Cuboid, Shape, ShapeType, TypedShape};
 use wgcore::{test_shader_compilation, Shader};
 use wgebra::{WgSim2, WgSim3};
 
-use crate::math::{Point, Vector};
+use crate::math::{Point, Vector, DIM};
 #[cfg(feature = "dim3")]
 use crate::shapes::cone::WgCone;
 #[cfg(feature = "dim3")]
@@ -73,6 +74,7 @@ pub struct ShapeBuffers {
     /// Polyline and TriMesh shapes reference ranges within this buffer.
     /// The shape stores the start and end indices of its vertices in this buffer.
     pub vertices: Vec<Point<f32>>,
+    /// Index buffers for polylines, triangle meshes, and convex polyhedrons.
     pub indices: Vec<u32>,
 }
 
@@ -179,15 +181,28 @@ impl GpuShape {
     /// # Parameters
     ///
     /// - `vertex_range`: Start and end indices into the vertex buffer
-    pub fn polyline(vertex_range: [u32; 2]) -> Self {
+    pub fn polyline(
+        bvh_vtx_root_id: u32,
+        bvh_idx_root_id: u32,
+        bvh_node_len: u32,
+        aabb: Aabb,
+    ) -> Self {
         let tag = f32::from_bits(GpuShapeType::Polyline as u32);
-        let rng0 = f32::from_bits(vertex_range[0]);
-        let rng1 = f32::from_bits(vertex_range[1]);
-        Self {
-            a: vector![rng0, rng1, 0.0, tag],
-            b: vector![0.0, 0.0, 0.0, 0.0],
-            c: vector![0.0, 0.0, 0.0, 0.0],
-        }
+        let a0 = f32::from_bits(bvh_vtx_root_id);
+        let a1 = f32::from_bits(bvh_idx_root_id);
+        let a2 = f32::from_bits(bvh_node_len);
+        #[cfg(feature = "dim2")]
+        return Self {
+            a: vector![a0, a1, a2, tag],
+            b: vector![aabb.mins.x, aabb.mins.y, 0.0, 0.0],
+            c: vector![aabb.maxs.x, aabb.maxs.y, 0.0, 0.0],
+        };
+        #[cfg(feature = "dim3")]
+        return Self {
+            a: vector![a0, a1, a2, tag],
+            b: aabb.mins.coords.push(0.0),
+            c: aabb.maxs.coords.push(0.0),
+        };
     }
 
     /// Creates a triangle mesh shape from a range of vertices.
@@ -196,18 +211,25 @@ impl GpuShape {
     pub fn trimesh(
         bvh_vtx_root_id: u32,
         bvh_idx_root_id: u32,
-        first_tri_id: u32,
+        bvh_node_len: u32,
         aabb: Aabb,
     ) -> Self {
         let tag = f32::from_bits(GpuShapeType::TriMesh as u32);
         let a0 = f32::from_bits(bvh_vtx_root_id);
         let a1 = f32::from_bits(bvh_idx_root_id);
-        let a2 = f32::from_bits(first_tri_id);
-        Self {
+        let a2 = f32::from_bits(bvh_node_len);
+        #[cfg(feature = "dim2")]
+        return Self {
+            a: vector![a0, a1, a2, tag],
+            b: vector![aabb.mins.x, aabb.mins.y, 0.0, 0.0],
+            c: vector![aabb.maxs.x, aabb.maxs.y, 0.0, 0.0],
+        };
+        #[cfg(feature = "dim3")]
+        return Self {
             a: vector![a0, a1, a2, tag],
             b: aabb.mins.coords.push(0.0),
             c: aabb.maxs.coords.push(0.0),
-        }
+        };
     }
 
     /// Creates a convex polyhedron definition from its vertex and index buffer anges.
@@ -292,12 +314,68 @@ impl GpuShape {
                 shape.radius,
             )),
             TypedShape::Polyline(shape) => {
-                let base_id = buffers.vertices.len();
+                let bvh_vtx_root_id = buffers.vertices.len();
+                let bvh_idx_root_id = buffers.indices.len();
+                // Append the BVH data to the vertex/index buffers.
+                // TODO: we are constructing a BVH using the `bvh` crate.
+                //       While the Polyline shape technically already has a BVH, parry’s BVH
+                //       doesn’t provide explicit access to the BVH topology. So, for now,
+                //       let’s just build a new BVH that exposes its internal.
+                struct BvhObject {
+                    aabb: bvh::aabb::Aabb<f32, DIM>,
+                    node_index: usize,
+                }
+
+                impl bvh::aabb::Bounded<f32, DIM> for BvhObject {
+                    fn aabb(&self) -> bvh::aabb::Aabb<f32, DIM> {
+                        self.aabb
+                    }
+                }
+
+                impl bvh::bounding_hierarchy::BHShape<f32, DIM> for BvhObject {
+                    fn set_bh_node_index(&mut self, index: usize) {
+                        self.node_index = index;
+                    }
+
+                    fn bh_node_index(&self) -> usize {
+                        self.node_index
+                    }
+                }
+
+                let mut objects: Vec<_> = shape
+                    .segments()
+                    .map(|tri| {
+                        let aabb = tri.local_aabb();
+                        BvhObject {
+                            aabb: bvh::aabb::Aabb::with_bounds(aabb.mins, aabb.maxs),
+                            node_index: 0,
+                        }
+                    })
+                    .collect();
+
+                let bvh = bvh::bvh::Bvh::build(&mut objects);
+                let flat_bvh = bvh.flatten();
+                buffers
+                    .vertices
+                    .extend(flat_bvh.iter().flat_map(|n| [n.aabb.min, n.aabb.max]));
+                let bvh_node_len = flat_bvh.len();
+                buffers.indices.extend(
+                    flat_bvh
+                        .iter()
+                        .flat_map(|n| [n.entry_index, n.exit_index, n.shape_index]),
+                );
+
+                // Append the actual mesh vertex/index buffers.
                 buffers.vertices.extend_from_slice(shape.vertices());
-                Some(Self::polyline([
-                    base_id as u32,
-                    buffers.vertices.len() as u32,
-                ]))
+                buffers
+                    .indices
+                    .extend(shape.indices().iter().flat_map(|seg| seg.iter().copied()));
+                Some(Self::polyline(
+                    bvh_vtx_root_id as u32,
+                    bvh_idx_root_id as u32,
+                    bvh_node_len as u32,
+                    shape.local_aabb(),
+                ))
             }
             TypedShape::TriMesh(shape) => {
                 let bvh_vtx_root_id = buffers.vertices.len();
@@ -308,17 +386,17 @@ impl GpuShape {
                 //       doesn’t provide explicit access to the BVH topology. So, for now,
                 //       let’s just build a new BVH that exposes its internal.
                 struct BvhObject {
-                    aabb: bvh::aabb::Aabb<f32, 3>,
+                    aabb: bvh::aabb::Aabb<f32, DIM>,
                     node_index: usize,
                 }
 
-                impl bvh::aabb::Bounded<f32, 3> for BvhObject {
-                    fn aabb(&self) -> bvh::aabb::Aabb<f32, 3> {
+                impl bvh::aabb::Bounded<f32, DIM> for BvhObject {
+                    fn aabb(&self) -> bvh::aabb::Aabb<f32, DIM> {
                         self.aabb
                     }
                 }
 
-                impl bvh::bounding_hierarchy::BHShape<f32, 3> for BvhObject {
+                impl bvh::bounding_hierarchy::BHShape<f32, DIM> for BvhObject {
                     fn set_bh_node_index(&mut self, index: usize) {
                         self.node_index = index;
                     }
@@ -344,7 +422,7 @@ impl GpuShape {
                 buffers
                     .vertices
                     .extend(flat_bvh.iter().flat_map(|n| [n.aabb.min, n.aabb.max]));
-                let first_tri_id = flat_bvh.len();
+                let bvh_node_len = flat_bvh.len();
                 buffers.indices.extend(
                     flat_bvh
                         .iter()
@@ -359,10 +437,20 @@ impl GpuShape {
                 Some(Self::trimesh(
                     bvh_vtx_root_id as u32,
                     bvh_idx_root_id as u32,
-                    first_tri_id as u32,
+                    bvh_node_len as u32,
                     shape.local_aabb(),
                 ))
             }
+            #[cfg(feature = "dim2")]
+            TypedShape::ConvexPolygon(poly) => {
+                let first_vtx_id = buffers.vertices.len() as u32;
+                buffers.vertices.extend_from_slice(poly.points());
+                let end_vtx_id = buffers.vertices.len() as u32;
+                // NOTE: face ids are not relevant for 2D convex polyhedron since it dosn’t have
+                //       an index buffer.
+                Some(Self::convex_poly(first_vtx_id, end_vtx_id, 0, 0))
+            }
+            #[cfg(feature = "dim3")]
             TypedShape::ConvexPolyhedron(poly) => {
                 let first_vtx_id = buffers.vertices.len();
                 let first_face_id = buffers.indices.len();
@@ -392,17 +480,11 @@ impl GpuShape {
             }
             // HACK: we currently emulate heightfields as trimeshes or polylines
             #[cfg(feature = "dim2")]
-            TypedShape::HeightField(shape) => {
-                let base_id = buffers.vertices.len();
-                let (vtx, _) = shape.to_polyline();
-                buffers.vertices.extend_from_slice(&vtx);
-                Some(Self::polyline([
-                    base_id as u32,
-                    buffers.vertices.len() as u32,
-                ]))
+            TypedShape::HeightField(_shape) => {
+                todo!()
             }
             #[cfg(feature = "dim3")]
-            TypedShape::HeightField(shape) => {
+            TypedShape::HeightField(_shape) => {
                 todo!()
             }
             #[cfg(feature = "dim3")]
@@ -523,6 +605,7 @@ struct WgCylinder;
         WgConvexPolyhedron,
         WgTriangle,
         WgTriMesh,
+        WgPolyline,
         WgAabb,
     ),
     src = "shape.wgsl",
