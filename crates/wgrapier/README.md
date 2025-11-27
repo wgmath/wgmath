@@ -55,6 +55,17 @@ cargo run --release --bin all_examples2 --target wasm32-unknown-unknown
 cargo run --release --bin all_examples3 --target wasm32-unknown-unknown
 ```
 
+## Web Performance Notes
+
+When running on the Web, best results are achieved with chrome-based browsers (including Edge).
+
+Note that:
+
+- We found WebGPU to be 10x slower on linux (tested on Ubuntu) compared to Windows or MacOS.
+- We found Firefox (nightly) to be 10x slower than Chrome on all platforms (including MacOS/Windows).
+- Keep in mind that some browsers don’t have WebGPU enabled by default and/or has an experimental
+  WebGPU implementation (like safari) that might not work.
+
 ## Resources
 
 - [wgmath repository](https://github.com/wgmath/wgmath)
