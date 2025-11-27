@@ -1,5 +1,5 @@
 use crate::bounding_volumes::WgAabb;
-use crate::math::{GpuSim, Point, Vector};
+use crate::math::{GpuSim, Point};
 use crate::shapes::{GpuShape, WgShape};
 use crate::utils::{RadixSort, RadixSortWorkspace};
 use crate::{dim_shader_defs, substitute_aliases};
@@ -209,7 +209,6 @@ impl Lbvh {
         colliders_len: u32,
         poses: &GpuVector<GpuSim>,
         vertex_buffers: &GpuVector<Point<f32>>,
-        index_buffers: &GpuVector<u32>,
         shapes: &GpuVector<GpuShape>,
         num_shapes: &GpuScalar<u32>,
     ) {

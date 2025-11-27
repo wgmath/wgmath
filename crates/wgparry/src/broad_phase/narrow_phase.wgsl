@@ -23,6 +23,8 @@
 #import wgparry::bounding_volumes::aabb as Aabb
 #import wgcore::indirect as Indirect
 #import wgparry::trimesh as TriMesh
+#import wgparry::polyline as Polyline
+#import wgparry::capsule as Capsule
 
 #if DIM == 2
     #import wgebra::sim2 as Pose;
@@ -140,6 +142,23 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
             return;
         }
 
+        if !checked && shape_ty1 == Shape::SHAPE_TYPE_POLYLINE {
+            let polyline = Shape::to_polyline(shapes[pair.x]);
+            let convex = shapes[pair.y];
+            polyline_convex(pose12, polyline, convex, prediction, pair);
+            return;
+        }
+
+        if !checked && shape_ty2 == Shape::SHAPE_TYPE_POLYLINE {
+            let convex = shapes[pair.x];
+            let polyline = Shape::to_polyline(shapes[pair.y]);
+            // NOTE: pair indices are  flipped.
+            polyline_convex(Pose::inv(pose12), polyline, convex, prediction, pair.yx);
+            // Early-exit since `polyline_convex` is special and writes directly to the output
+            // `contacst` buffer.
+            return;
+        }
+
         if manifold.len > 0 && manifold.points_a[0].dist < prediction {
             let target_contact_index = atomicAdd(&contacts_len, 1u);
             contacts[target_contact_index] = Contact::IndexedManifold(manifold, pair);
@@ -188,6 +207,59 @@ fn trimesh_convex(pose12: Transform, mesh: TriMesh::TriMesh, convex: Shape::Shap
             curr = idx.exit_index;
         } else {
             let aabb = TriMesh::bvh_node_aabb(mesh, curr);
+            if Aabb::check_intersection(test_aabb, aabb) {
+                curr = idx.entry_index;
+            } else {
+                curr = idx.exit_index;
+            }
+        }
+    }
+}
+
+
+// Collision-detection between a polyline and a convex shape.
+// While this is not a very clean place to have this function, it’s our best (only?) option if
+// we want to output the result incrementally into the `contacts` storage buffer. this could be
+// much cleaner if we could pass storage buffers as arguments to function but we can’t with WGSL :/
+fn polyline_convex(pose12: Transform, mesh: Polyline::Polyline, convex: Shape::Shape, prediction: f32, pair: vec2<u32>) {
+    let sub2 = Shape::pfm_subshape(convex);
+    if !sub2.valid {
+        // Collisions with non-PFM shapes is not supported.
+        return;
+    }
+
+    // Get the convex shape’s AABB in the trimesh’s local space, and enlarge with the prediction.
+    let thickness = 0.4;
+    var test_aabb = Shape::aabb(pose12, convex);
+    test_aabb.mins -= Vector(prediction + thickness);
+    test_aabb.maxs += Vector(prediction + thickness);
+
+    if !Aabb::check_intersection(test_aabb, mesh.root_aabb) {
+        // No collision possible.
+        return;
+    }
+
+    var curr = 0u;
+
+    while curr < mesh.bvh_node_len {
+        let idx = Polyline::bvh_node_idx(mesh, curr);
+        if idx.entry_index == 0xffffffffu {
+            // This is a leaf.
+            let segment = Polyline::segment(mesh, idx.shape_index);
+            let capsule = Capsule::Capsule(segment, thickness); // The segment is seen as a 0-sized capsule
+            let sub1 = Shape::pfm_subshape(Shape::from_capsule(capsule));
+            // TODO PERF: add special-cases for pairs that can be handled more efficiently than with GJK/EPA.
+            let manifold = Contact::pfm_pfm(pose12, sub1.shape, sub1.thickness, sub2.shape, sub2.thickness, prediction);
+
+            if manifold.len > 0u && manifold.points_a[0].dist < prediction {
+                let target_contact_index = atomicAdd(&contacts_len, 1u);
+                contacts[target_contact_index] = Contact::IndexedManifold(manifold, pair);
+            }
+
+            // Continue traversal.
+            curr = idx.exit_index;
+        } else {
+            let aabb = Polyline::bvh_node_aabb(mesh, curr);
             if Aabb::check_intersection(test_aabb, aabb) {
                 curr = idx.entry_index;
             } else {

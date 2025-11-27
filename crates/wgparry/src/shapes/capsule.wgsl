@@ -28,6 +28,7 @@ struct Capsule {
     radius: f32,
 }
 
+#if DIM == 3
 /// Computes an orthonormal basis from a single 3D vector.
 ///
 /// Given a normalized vector v, this function computes two orthogonal vectors
@@ -53,6 +54,7 @@ fn orthonormal_basis3(v: vec3<f32>) -> array<vec3<f32>, 2> {
         vec3(b, sign + v.y * v.y * a, -v.y),
     );
 }
+#endif
 
 /// Finds an arbitrary vector orthogonal to the given vector.
 ///
@@ -158,7 +160,12 @@ fn local_support_point(shape: Capsule, dir: Vector) -> Vector {
     }
 
     let dir_len = length(dir);
-    let normal = select(Vector(0.0, 1.0, 0.0), dir / dir_len, dir_len != 0.0);
+    #if DIM == 2
+    let y = Vector(0.0, 1.0);
+    #else
+    let y = Vector(0.0, 1.0, 0.0);
+    #endif
+    let normal = select(y, dir / dir_len, dir_len != 0.0);
     return endpoint + normal * shape.radius;
 }
 

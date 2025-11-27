@@ -104,8 +104,8 @@ fn support_face(box: Cuboid, axis: Vector) -> Feat::PolygonalFeature {
         let sign = select(-1.0, 1.0, axis[0] > 0.0);
         return Feat::PolygonalFeature(
             array(
-                vec2(he.x * sign, -he.y),
                 vec2(he.x * sign, he.y),
+                vec2(he.x * sign, -he.y),
             ),
             2,
         );

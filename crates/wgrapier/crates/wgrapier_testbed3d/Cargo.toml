@@ -35,7 +35,7 @@ wgparry3d = { version = "0.2", path = "../../../wgparry/crates/wgparry3d" }
 wgrapier3d = { version = "0.2", path = "../wgrapier3d" }
 rapier3d = { version = "0.30", features = ["simd-stable"] }
 num-traits = "0.2"
-kiss3d = { version = "0.37.1", features = ["egui"] }
+kiss3d = { version = "0.37.2", features = ["egui"] }
 web-time = "1"
 
 [dev-dependencies]

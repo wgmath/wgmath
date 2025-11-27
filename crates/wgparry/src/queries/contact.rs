@@ -14,12 +14,15 @@
 use super::{WgPolygonalFeature, WgSat};
 use crate::math::Vector;
 use crate::queries::gjk::{WgCsoPoint, WgEpa, WgGjk, WgVoronoiSimplex};
-use crate::shapes::{WgBall, WgCone, WgCuboid, WgCylinder, WgShape};
+use crate::shapes::{WgBall, WgCuboid, WgShape};
 use crate::{dim_shader_defs, substitute_aliases};
 use encase::ShaderType;
 use na::Vector2;
 use wgcore::Shader;
 use wgebra::{WgSim2, WgSim3};
+
+#[cfg(feature = "dim3")]
+use crate::shapes::{WgCone, WgCylinder};
 
 #[cfg(feature = "dim2")]
 const MAX_MANIFOLD_POINTS: usize = 2;
@@ -88,23 +91,45 @@ pub struct GpuIndexedContact {
 }
 
 #[derive(Shader)]
-#[shader(
-    derive(
-        WgBall,
-        WgCuboid,
-        WgCylinder,
-        WgShape,
-        WgCone,
-        WgSim2,
-        WgSim3,
-        WgSat,
-        WgPolygonalFeature,
-        WgContactManifold,
-        WgContactPfmPfm,
-    ),
-    src = "contact.wgsl",
-    src_fn = "substitute_aliases",
-    shader_defs = "dim_shader_defs"
+#[cfg_attr(
+    feature = "dim2",
+    shader(
+        derive(
+            WgBall,
+            WgCuboid,
+            WgShape,
+            WgSim2,
+            WgSim3,
+            WgSat,
+            WgPolygonalFeature,
+            WgContactManifold,
+            WgContactPfmPfm,
+        ),
+        src = "contact.wgsl",
+        src_fn = "substitute_aliases",
+        shader_defs = "dim_shader_defs"
+    )
+)]
+#[cfg_attr(
+    feature = "dim3",
+    shader(
+        derive(
+            WgBall,
+            WgCuboid,
+            WgShape,
+            WgSim2,
+            WgSim3,
+            WgSat,
+            WgPolygonalFeature,
+            WgContactManifold,
+            WgContactPfmPfm,
+            WgCylinder,
+            WgCone
+        ),
+        src = "contact.wgsl",
+        src_fn = "substitute_aliases",
+        shader_defs = "dim_shader_defs"
+    )
 )]
 /// GPU shader for contact generation between shapes.
 ///
@@ -145,6 +170,11 @@ pub struct WgContactManifold;
     src_fn = "substitute_aliases",
     shader_defs = "dim_shader_defs"
 )]
+/// Kernel for contact manifold calculation between two "Polygonal Feature Maps".
+///
+/// A Polygonal Feature Map is similar to the concept of Support Mappings, except that
+/// instead associating an extremal point to a vector, it associates an extremal polygonal
+/// face to the direction.
 pub struct WgContactPfmPfm;
 
 wgcore::test_shader_compilation!(WgContact, wgcore, crate::dim_shader_defs());

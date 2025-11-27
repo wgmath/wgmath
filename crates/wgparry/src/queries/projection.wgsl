@@ -6,7 +6,7 @@
 
 #define_import_path wgparry::projection
 
-const EPSILON: vec3<f32> = vec3(1.1920929E-7);
+const EPSILON: Vector = Vector(1.1920929E-7);
 
 /// The result of a point projection operation.
 ///
@@ -23,7 +23,7 @@ struct ProjectionResult {
 
 struct ProjectionWithLocation {
     point: Vector,
-    bcoords: Vector,
+    bcoords: vec3<f32>,
     // 0: vertex, 1: edge, 2: face
     feature_type: u32,
     id: u32,
@@ -31,7 +31,7 @@ struct ProjectionWithLocation {
 }
 
 fn vertex(pt: Vector, id: u32, inside: bool) -> ProjectionWithLocation {
-    return ProjectionWithLocation(pt, Vector(), FEATURE_VERTEX, id, inside);
+    return ProjectionWithLocation(pt, vec3(), FEATURE_VERTEX, id, inside);
 }
 
 fn edge(pt: Vector, bcoords: vec2<f32>, id: u32, inside: bool) -> ProjectionWithLocation {
@@ -43,7 +43,7 @@ fn face(pt: Vector, bcoords: vec3<f32>, id: u32, inside: bool) -> ProjectionWith
 }
 
 fn solid(pt: Vector) -> ProjectionWithLocation {
-    return ProjectionWithLocation(pt, Vector(), FEATURE_SOLID, 0, true);
+    return ProjectionWithLocation(pt, vec3(), FEATURE_SOLID, 0, true);
 }
 
 #if DIM == 3
@@ -87,7 +87,7 @@ const FEATURE_FACE: u32 = 2;
 const FEATURE_SOLID: u32 = 3;
 
 // TODO: move that to its own utility file
-fn relative_eq(a: vec3<f32>, b: vec3<f32>) -> bool {
+fn relative_eq(a: Vector, b: Vector) -> bool {
     let abs_diff = abs(a - b);
 
     // For when the numbers are really close together
