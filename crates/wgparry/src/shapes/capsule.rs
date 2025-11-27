@@ -4,7 +4,7 @@
 //! It can be visualized as a sphere swept along the segment, or as a cylinder with
 //! hemispherical caps at both ends.
 
-use crate::queries::{WgProjection, WgRay};
+use crate::queries::{WgPolygonalFeature, WgProjection, WgRay};
 use crate::shapes::WgSegment;
 use crate::{dim_shader_defs, substitute_aliases};
 use wgcore::Shader;
@@ -12,7 +12,7 @@ use wgebra::{WgSim2, WgSim3};
 
 #[derive(Shader)]
 #[shader(
-    derive(WgSim3, WgSim2, WgRay, WgProjection, WgSegment),
+    derive(WgSim3, WgSim2, WgRay, WgProjection, WgSegment, WgPolygonalFeature),
     src = "capsule.wgsl",
     src_fn = "substitute_aliases",
     shader_defs = "dim_shader_defs"

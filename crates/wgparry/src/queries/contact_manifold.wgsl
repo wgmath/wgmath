@@ -13,6 +13,12 @@
 
 #define_import_path wgparry::contact_manifold
 
+#if DIM == 2
+    #import wgebra::sim2 as Pose
+#else
+    #import wgebra::sim3 as Pose
+#endif
+
 
 #if DIM == 2
 /// Maximum number of contact points in a 2D contact manifold.
@@ -47,5 +53,16 @@ fn single_point(pt: Vector, dist: f32, normal: Vector) -> ContactManifold {
     result.points_a[0] = ContactPoint(pt, dist);
     result.normal_a = normal;
     result.len = 1;
+    return result;
+}
+
+fn flip(manifold: ContactManifold, transform: Transform) -> ContactManifold {
+    var result = manifold;
+    let normal = Pose::mulVec(transform, -result.normal_a);
+    result.points_a[0].pt = Pose::mulPt(transform, result.points_a[0].pt) - normal * result.points_a[0].dist;
+    result.points_a[1].pt = Pose::mulPt(transform, result.points_a[1].pt) - normal * result.points_a[1].dist;
+    result.points_a[2].pt = Pose::mulPt(transform, result.points_a[2].pt) - normal * result.points_a[2].dist;
+    result.points_a[3].pt = Pose::mulPt(transform, result.points_a[3].pt) - normal * result.points_a[3].dist;
+    result.normal_a = normal;
     return result;
 }

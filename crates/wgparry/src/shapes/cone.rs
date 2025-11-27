@@ -6,7 +6,7 @@
 //!
 //! **Note:** This shape is only available with the `dim3` feature.
 
-use crate::queries::{WgProjection, WgRay};
+use crate::queries::{WgPolygonalFeature, WgProjection, WgRay};
 use crate::shapes::segment::WgSegment;
 use crate::{dim_shader_defs, substitute_aliases};
 use wgcore::Shader;
@@ -14,7 +14,7 @@ use wgebra::{WgSim2, WgSim3};
 
 #[derive(Shader)]
 #[shader(
-    derive(WgSim3, WgSim2, WgRay, WgProjection, WgSegment),
+    derive(WgSim3, WgSim2, WgRay, WgProjection, WgSegment, WgPolygonalFeature),
     src = "cone.wgsl",
     src_fn = "substitute_aliases",
     shader_defs = "dim_shader_defs"

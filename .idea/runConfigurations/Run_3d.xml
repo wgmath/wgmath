@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Run 3d" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
     <option name="buildProfileId" value="release" />
-    <option name="command" value="run --bin all_examples3 --release" />
+    <option name="command" value="run --bin all_examples3" />
     <option name="workingDirectory" value="file://$PROJECT_DIR$/crates/wgrapier" />
     <envs />
     <option name="emulateTerminal" value="true" />

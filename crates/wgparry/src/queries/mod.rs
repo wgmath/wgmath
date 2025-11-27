@@ -7,6 +7,7 @@
 //! - **Separating axis tests**: Efficient collision detection between convex shapes
 
 mod contact;
+mod gjk;
 mod polygonal_feature;
 mod projection;
 mod ray;

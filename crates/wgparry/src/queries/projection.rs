@@ -54,7 +54,7 @@ pub struct GpuProjectionResult {
 /// used by shape-specific projection implementations.
 pub struct WgProjection;
 
-wgcore::test_shader_compilation!(WgProjection);
+wgcore::test_shader_compilation!(WgProjection, wgcore, crate::dim_shader_defs());
 
 #[cfg(test)]
 pub(crate) mod test_utils {

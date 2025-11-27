@@ -25,6 +25,7 @@
 #import wgparry::segment as Seg;
 #import wgparry::cylinder as Cyl;
 #import wgparry::cone as Con;
+#import wgparry::polygonal_feature as Feat
 
 #define_import_path wgparry::shape
 
@@ -52,6 +53,12 @@ fn shape_type(shape: Shape) -> u32 {
     return bitcast<u32>(shape.a.w);
 }
 
+struct PfmSubShape {
+    shape: Shape,
+    thickness: f32,
+    valid: bool,
+}
+
 /*
  *
  * Shape conversions.
@@ -74,6 +81,12 @@ fn to_capsule(shape: Shape) -> Cap::Capsule {
 #else
     return Cap::Capsule(Seg::Segment(shape.a.xyz, shape.b.xyz), shape.b.w);
 #endif
+}
+
+fn wrap_capsule(cap: Cap::Capsule) -> Shape {
+    let a = vec4(cap.segment.a, bitcast<f32>(SHAPE_TYPE_CAPSULE));
+    let b = vec4(cap.segment.b, cap.radius);
+    return Shape(a, b);
 }
 
 fn to_cuboid(shape: Shape) -> Cub::Cuboid {
@@ -207,4 +220,77 @@ fn projectPointOnBoundary(shape: Shape, pose: Transform, pt: Vector) -> Proj::Pr
     }
 #endif
     return Proj::ProjectionResult(pt, false);
+}
+
+fn support_point(shape: Shape, pose: Transform, axis: Vector) -> Vector {
+    let local_axis = Pose::invMulVec(pose, axis);
+    let local_pt = local_support_point(shape, local_axis);
+    return Pose::mulPt(pose, local_pt);
+}
+
+fn local_support_point(shape: Shape, dir: Vector) -> Vector {
+    let ty = shape_type(shape);
+//    if ty == SHAPE_TYPE_BALL {
+//        return Bal::local_support_point(to_ball(shape), dir);
+//    }
+    if ty == SHAPE_TYPE_CUBOID {
+        return Cub::local_support_point(to_cuboid(shape), dir);
+    }
+    if ty == SHAPE_TYPE_CAPSULE {
+        return Cap::local_support_point(to_capsule(shape), dir);
+    }
+#if DIM == 3
+    if ty == SHAPE_TYPE_CONE {
+        return Con::local_support_point(to_cone(shape), dir);
+    }
+    if ty == SHAPE_TYPE_CYLINDER {
+        return Cyl::local_support_point(to_cylinder(shape), dir);
+    }
+#endif
+    return Vector();
+}
+
+fn support_face(shape: Shape, dir: Vector) -> Feat::PolygonalFeature {
+    let ty = shape_type(shape);
+//    if ty == SHAPE_TYPE_BALL {
+//        return Bal::support_face(to_ball(shape), dir);
+//    }
+    if ty == SHAPE_TYPE_CUBOID {
+        return Cub::support_face(to_cuboid(shape), dir);
+    }
+    if ty == SHAPE_TYPE_CAPSULE {
+        return Cap::support_face(to_capsule(shape), dir);
+    }
+#if DIM == 3
+    if ty == SHAPE_TYPE_CONE {
+        return Con::support_face(to_cone(shape), dir);
+    }
+    if ty == SHAPE_TYPE_CYLINDER {
+        return Cyl::support_face(to_cylinder(shape), dir);
+    }
+#endif
+    return Feat::PolygonalFeature();
+}
+
+fn pfm_subshape(shape: Shape) -> PfmSubShape {
+    let ty = shape_type(shape);
+    if ty == SHAPE_TYPE_CUBOID || ty == SHAPE_TYPE_CONE || ty == SHAPE_TYPE_CYLINDER {
+        // No subshape, return the original shape itself.
+        return PfmSubShape(shape, 0.0, true);
+    }
+
+    if ty == SHAPE_TYPE_BALL {
+        let ball = to_ball(shape);
+        let segment = Cap::Capsule();
+        return PfmSubShape(wrap_capsule(segment), ball.radius, true);
+    }
+
+    if ty == SHAPE_TYPE_CAPSULE {
+        let capsule = to_capsule(shape);
+        let without_radius = Cap::Capsule(capsule.segment, 0.0);
+        return PfmSubShape(wrap_capsule(without_radius), capsule.radius, true);
+    }
+
+    // Not a PFM.
+    return PfmSubShape(shape, 0.0, false);
 }

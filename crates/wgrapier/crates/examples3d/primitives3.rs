@@ -3,8 +3,8 @@ use rapier3d::prelude::*;
 use wgrapier_testbed3d::SimulationState;
 
 pub fn init_world() -> SimulationState {
-    const NXZ: isize = 30;
-    const NY: isize = 70;
+    const NXZ: isize = 20;
+    const NY: isize = 40;
 
     let mut bodies = RigidBodySet::default();
     let mut colliders = ColliderSet::default();
@@ -18,16 +18,20 @@ pub fn init_world() -> SimulationState {
         for i in -max_ik..max_ik {
             for k in -max_ik..max_ik {
                 let x = i as f32 * 1.1 + j as f32 * 0.01;
-                let y = j as f32 * 1.1 + 0.6;
+                let y = j as f32 * 1.6 + 1.0;
                 let z = k as f32 * 1.1 + j as f32 * 0.01;
                 let pos = Vector3::new(x, y, z);
-
                 let body = bodies.insert(RigidBodyBuilder::dynamic().translation(pos));
-                colliders.insert_with_parent(
-                    ColliderBuilder::cuboid(0.5, 0.5, 0.5),
-                    body,
-                    &mut bodies,
-                );
+
+                let collider = match j % 5 {
+                    0 => ColliderBuilder::cylinder(0.5, 0.5),
+                    1 => ColliderBuilder::cuboid(0.5, 0.5, 0.5),
+                    2 => ColliderBuilder::cone(0.5, 0.5),
+                    3 => ColliderBuilder::capsule_y(0.5, 0.5),
+                    _ => ColliderBuilder::ball(0.5),
+                };
+
+                colliders.insert_with_parent(collider, body, &mut bodies);
             }
         }
     }
@@ -36,8 +40,8 @@ pub fn init_world() -> SimulationState {
      * Floor made of large cuboids.
      */
     {
-        let thick = NXZ as f32 * 1.5;
-        let height = 12.0;
+        let thick = NXZ as f32 * 1.3;
+        let height = 8.0;
         let walls = [
             (
                 Vector3::new(0.0, -0.5, 0.0),

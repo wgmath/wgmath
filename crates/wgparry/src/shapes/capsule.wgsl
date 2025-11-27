@@ -11,6 +11,7 @@
 #import wgparry::ray as Ray
 #import wgparry::projection as Proj
 #import wgparry::segment as Seg
+#import wgparry::polygonal_feature as Feat
 
 #define_import_path wgparry::capsule
 
@@ -144,5 +145,41 @@ fn projectPointOnBoundary(capsule: Capsule, pose: Transform, pt: Vector) -> Proj
     let local_pt = Pose::invMulPt(pose, pt);
     var result = projectLocalPointOnBoundary(capsule, local_pt);
     result.point = Pose::mulPt(pose, result.point);
+    return result;
+}
+
+
+fn local_support_point(shape: Capsule, dir: Vector) -> Vector {
+    let seg_dir = shape.segment.b - shape.segment.a;
+    let endpoint = select(shape.segment.a, shape.segment.b, dot(seg_dir, dir) >= 0.0);
+
+    if shape.radius == 0.0 {
+        return endpoint;
+    }
+
+    let dir_len = length(dir);
+    let normal = select(Vector(0.0, 1.0, 0.0), dir / dir_len, dir_len != 0.0);
+    return endpoint + normal * shape.radius;
+}
+
+fn support_face(shape: Capsule, dir: Vector) -> Feat::PolygonalFeature {
+    var result = Feat::PolygonalFeature();
+    if shape.radius == 0.0 {
+        result.vertices[0] = shape.segment.a;
+        result.vertices[1] = shape.segment.b;
+        result.num_vertices = 2;
+    } else {
+        let seg_dir = shape.segment.b - shape.segment.a;
+        if abs(dot(seg_dir, dir)) <= 1.0e-6 {
+            result.vertices[0] = shape.segment.a;
+            result.vertices[1] = shape.segment.b;
+            result.num_vertices = 2;
+        } else {
+            let endpoint = select(shape.segment.a, shape.segment.b, dot(seg_dir, dir) >= 0.0);
+            result.vertices[0] = endpoint + dir * (shape.radius / length(dir));
+            result.num_vertices = 1;
+        }
+    }
+
     return result;
 }

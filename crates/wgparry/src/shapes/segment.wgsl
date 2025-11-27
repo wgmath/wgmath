@@ -54,3 +54,29 @@ fn projectLocalPoint(seg: Segment, pt: Vector) -> Vector {
         return seg.a + ab * u;
     }
 }
+
+fn project_local_point_and_get_location(shape: Segment, pt: Vector, solid: bool) -> Proj::ProjectionWithLocation {
+    let ab = shape.b - shape.a;
+    let ap = pt - shape.a;
+    let ab_ap = dot(ab, ap);
+    let sqnab = dot(ab, ab);
+
+    // TODO: is this acceptable?
+
+    if ab_ap <= 0.0 {
+        // Voronoï region of vertex 'a'.
+        let inside = Proj::relative_eq(shape.a, pt);
+        return Proj::vertex(shape.a, 0, inside);
+    } else if ab_ap >= sqnab {
+        // Voronoï region of vertex 'b'.
+        let inside = Proj::relative_eq(shape.b, pt);
+        return Proj::vertex(shape.b, 1, inside);
+    } else {
+        // Voronoï region of the segment interior.
+        let u = ab_ap / sqnab;
+        let bcoords = vec2(1.0 - u, u);
+        let proj = shape.a + ab * u;
+        let inside = Proj::relative_eq(proj, pt);
+        return Proj::edge(proj, bcoords, 0, inside);
+    }
+}

@@ -67,26 +67,58 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
         var manifold = Manifold::ContactManifold();
         let pose12 = Pose::invMul(pose1, pose2);
         let prediction = 2.0e-3; // TODO: make the prediciton configurable.
+        var checked = false;
 
-        if shape_ty1 == Shape::SHAPE_TYPE_BALL && shape_ty2 == Shape::SHAPE_TYPE_BALL {
-            let shape1 = Shape::to_ball(shapes[pair.x]);
-            let shape2 = Shape::to_ball(shapes[pair.y]);
-            manifold = Contact::ball_ball(pose12, shape1, shape2);
-        } else if shape_ty1 == Shape::SHAPE_TYPE_BALL && shape_ty2 == Shape::SHAPE_TYPE_CUBOID {
-            let shape1 = Shape::to_ball(shapes[pair.x]);
-            let shape2 = Shape::to_cuboid(shapes[pair.y]);
-            manifold = Contact::ball_cuboid(pose12, shape1, shape2);
-        } else if shape_ty1 == Shape::SHAPE_TYPE_CUBOID && shape_ty2 == Shape::SHAPE_TYPE_BALL {
-            let shape1 = Shape::to_cuboid(shapes[pair.x]);
-            let shape2 = Shape::to_ball(shapes[pair.y]);
-            manifold = Contact::cuboid_ball(pose12, shape1, shape2);
-        } else if shape_ty1 == Shape::SHAPE_TYPE_CUBOID && shape_ty2 == Shape::SHAPE_TYPE_CUBOID {
+        // Ball - Convex
+        if shape_ty1 == Shape::SHAPE_TYPE_BALL {
+            switch shape_ty2 {
+                case Shape::SHAPE_TYPE_BALL: {
+                    let shape1 = Shape::to_ball(shapes[pair.x]);
+                    let shape2 = Shape::to_ball(shapes[pair.y]);
+                    manifold = Contact::ball_ball(pose12, shape1, shape2);
+                    checked = true;
+                }
+                case Shape::SHAPE_TYPE_CUBOID, Shape::SHAPE_TYPE_CAPSULE,
+                    Shape::SHAPE_TYPE_CONE, Shape::SHAPE_TYPE_CYLINDER: {
+                    let shape1 = Shape::to_ball(shapes[pair.x]);
+                    manifold = Contact::ball_convex(pose12, shape1, shapes[pair.y]);
+                    checked = true;
+                }
+                default: {
+                }
+            }
+        }
+
+        // Convex - Ball
+        if !checked && shape_ty2 == Shape::SHAPE_TYPE_BALL {
+            switch shape_ty1 {
+                case Shape::SHAPE_TYPE_CUBOID, Shape::SHAPE_TYPE_CAPSULE,
+                    Shape::SHAPE_TYPE_CONE, Shape::SHAPE_TYPE_CYLINDER: {
+                    let shape2 = Shape::to_ball(shapes[pair.y]);
+                    manifold = Contact::convex_ball(pose12, shapes[pair.x], shape2);
+                    checked = true;
+                }
+                default: {
+                }
+            }
+        }
+
+        // Cuboid - cuboid
+        if !checked && shape_ty1 == Shape::SHAPE_TYPE_CUBOID && shape_ty2 == Shape::SHAPE_TYPE_CUBOID {
             let shape1 = Shape::to_cuboid(shapes[pair.x]);
             let shape2 = Shape::to_cuboid(shapes[pair.y]);
             manifold = Contact::cuboid_cuboid(pose12, shape1, shape2, prediction);
-        } else {
-            // Unsupported contact pair type are simply ignored.
-            continue;
+            checked = true;
+        }
+
+        // Pfm - Pfm
+        if !checked {
+            let sub1 = Shape::pfm_subshape(shapes[pair.x]);
+            let sub2 = Shape::pfm_subshape(shapes[pair.y]);
+
+            if sub1.valid && sub2.valid {
+                manifold = Contact::pfm_pfm(pose12, sub1.shape, sub1.thickness, sub2.shape, sub2.thickness, prediction);
+            }
         }
 
         if manifold.len > 0 && manifold.points_a[0].dist < prediction {

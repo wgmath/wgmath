@@ -13,7 +13,8 @@
 
 use super::{WgPolygonalFeature, WgSat};
 use crate::math::Vector;
-use crate::shapes::{WgBall, WgCuboid};
+use crate::queries::gjk::{WgCsoPoint, WgEpa, WgGjk, WgVoronoiSimplex};
+use crate::shapes::{WgBall, WgCone, WgCuboid, WgCylinder, WgShape};
 use crate::{dim_shader_defs, substitute_aliases};
 use encase::ShaderType;
 use na::Vector2;
@@ -91,11 +92,15 @@ pub struct GpuIndexedContact {
     derive(
         WgBall,
         WgCuboid,
+        WgCylinder,
+        WgShape,
+        WgCone,
         WgSim2,
         WgSim3,
         WgSat,
         WgPolygonalFeature,
-        WgContactManifold
+        WgContactManifold,
+        WgContactPfmPfm,
     ),
     src = "contact.wgsl",
     src_fn = "substitute_aliases",
@@ -112,6 +117,7 @@ pub struct WgContact;
 
 #[derive(Shader)]
 #[shader(
+    derive(WgSim2, WgSim3),
     src = "contact_manifold.wgsl",
     src_fn = "substitute_aliases",
     shader_defs = "dim_shader_defs"
@@ -125,4 +131,21 @@ pub struct WgContact;
 /// This shader is a dependency for [`WgContact`] and other contact-related shaders.
 pub struct WgContactManifold;
 
+#[derive(Shader)]
+#[shader(
+    derive(
+        WgCsoPoint,
+        WgVoronoiSimplex,
+        WgShape,
+        WgGjk,
+        WgEpa,
+        WgPolygonalFeature,
+    ),
+    src = "contact_pfm_pfm.wgsl",
+    src_fn = "substitute_aliases",
+    shader_defs = "dim_shader_defs"
+)]
+pub struct WgContactPfmPfm;
+
 wgcore::test_shader_compilation!(WgContact, wgcore, crate::dim_shader_defs());
+wgcore::test_shader_compilation!(WgContactPfmPfm, wgcore, crate::dim_shader_defs());
