@@ -128,7 +128,6 @@ impl Testbed {
             &mut self.cached_gpu_pipeline,
         )
         .await;
-        println!("There");
 
         let mut render_ctx = setup_graphics(&mut window, &phys).await;
 

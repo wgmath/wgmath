@@ -1,8 +1,7 @@
 //! Extensions over naga-oil’s Composer.
 
-use naga_oil::compose::preprocess::Preprocessor;
 use naga_oil::compose::{
-    ComposableModuleDefinition, ComposableModuleDescriptor, Composer, ComposerError, ErrSource,
+    ComposableModuleDefinition, ComposableModuleDescriptor, Composer, ComposerError,
 };
 
 /// An extension trait for the naga-oil `Composer` to work around some of its limitations.
@@ -23,20 +22,20 @@ impl ComposerExt for Composer {
         &mut self,
         desc: ComposableModuleDescriptor<'_>,
     ) -> Result<Option<&ComposableModuleDefinition>, ComposerError> {
-        let prep = Preprocessor::default();
-        // TODO: not sure if allow_defines should be `true` or `false`.
-        let meta = prep
-            .get_preprocessor_metadata(desc.source, false)
-            .map_err(|inner| ComposerError {
-                inner,
-                source: ErrSource::Constructing {
-                    path: desc.file_path.to_string(),
-                    source: desc.source.to_string(),
-                    offset: 0,
-                },
-            })?;
+        // NOTE: extract the module name manually for avoiding duplicate. This is **much** faster
+        //       than retrieving the name through `Preprocessor::get_preprocessor_metadata`.
+        let module_name = desc
+            .source
+            .lines()
+            .find(|line| line.contains("define_import_path"))
+            .map(|line| {
+                line.replace("#define_import_path", "")
+                    .replace(";", "")
+                    .trim()
+                    .to_string()
+            });
 
-        if let Some(name) = &meta.name {
+        if let Some(name) = &module_name {
             if self.contains_module(name) {
                 // Module already exists, don’t insert it.
                 return Ok(None);
